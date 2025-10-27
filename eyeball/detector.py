@@ -531,21 +531,22 @@ class ObjectDetector:
         panel[:] = (40, 40, 40)  # Dark gray background
 
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.5
+        font_scale = 0.6
         color = (0, 255, 0)
         thickness = 1
-        line_height = 25
+        line_height = 28
 
         # Calculate column widths
         col_width = width // 3
 
-        # Draw columns
+        # Draw columns with antialiasing for better rendering
         columns = [col1_metrics, col2_metrics, col3_metrics]
         for col_idx, col_text in enumerate(columns):
-            x_offset = col_idx * col_width + 10
+            x_offset = col_idx * col_width + 15
             for row_idx, text in enumerate(col_text):
-                y = 25 + row_idx * line_height
-                cv2.putText(panel, text, (x_offset, y), font, font_scale, color, thickness)
+                y = 28 + row_idx * line_height
+                # Use LINE_AA for antialiased text rendering
+                cv2.putText(panel, text, (x_offset, y), font, font_scale, color, thickness, cv2.LINE_AA)
 
         return panel
 
@@ -1021,27 +1022,31 @@ class ObjectDetector:
 
         return screenshot_filename
 
-    def run(self, window_name: str = "YOLO Object Detection", window_size: tuple = (1280, 720)):
+    def run(self, window_name: str = "Eyeball Detection", window_size: tuple = (1280, 800)):
         """
         Start the main detection loop.
 
         Args:
             window_name: Name of the display window (ignored in headless mode)
-            window_size: Window size as (width, height) (ignored in headless mode)
+            window_size: Fixed window size as (width, height) (ignored in headless mode)
         """
         # Create display window only if not in headless mode
         if not self.headless:
             try:
-                cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-                cv2.resizeWindow(window_name, *window_size)
+                # Create window with AUTOSIZE flag for fixed size (no resizing)
+                cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE)
+                # Set window properties to remove decorations/buttons (platform-dependent)
+                cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
+
                 # Show initial blank frame
-                blank_frame = np.zeros((480, 640, 3), dtype=np.uint8)
-                cv2.putText(blank_frame, "Waiting for SRT stream...", (50, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                blank_frame = np.zeros((window_size[1], window_size[0], 3), dtype=np.uint8)
+                cv2.putText(blank_frame, "Waiting for SRT stream...", (50, window_size[1]//2),
+                           cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
                 cv2.imshow(window_name, blank_frame)
                 # Force a waitKey to ensure window is created and displayed
                 cv2.waitKey(1)
-                print(f"✓ Display window created successfully: {window_name}")
-                print("  Metric overlay will be visible in top-left corner")
+                print(f"✓ Display window created: {window_name} ({window_size[0]}x{window_size[1]})")
+                print("  Fixed size window with metrics panel above video")
             except Exception as e:
                 print(f"⚠ Could not create display window: {e}")
                 print("  This may be due to missing GUI libraries or running in a headless environment")
@@ -1173,6 +1178,15 @@ class ObjectDetector:
 
                     # Combine metrics panel and video frame vertically
                     combined_display = np.vstack([metrics_panel, display_frame])
+
+                    # Resize to fixed window size if needed (prevents scaling artifacts)
+                    # Window size is defined in run() method - default 1280x800
+                    target_width = 1280
+                    target_height = 800
+                    if combined_display.shape[1] != target_width or combined_display.shape[0] != target_height:
+                        # Resize with high quality interpolation
+                        combined_display = cv2.resize(combined_display, (target_width, target_height),
+                                                     interpolation=cv2.INTER_LINEAR)
 
                     cv2.imshow(window_name, combined_display)
 
