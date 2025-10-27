@@ -44,12 +44,18 @@ def main():
     inference_size = (1280, 720)
 
     # Create ROI mask to ignore specific areas
-    # Mask out top 280 pixels to ignore sky/buildings/stationary objects
+    # IMPORTANT: Mask coordinates are in INFERENCE resolution (1280x720)
+    # To mask top 280 pixels of ORIGINAL 1080p frame, we need to scale:
+    # 280 pixels at 1080p → (280 / 1080) * 720 = 187 pixels at 720p
     roi_mask = np.ones((inference_size[1], inference_size[0]), dtype=np.uint8) * 255
-    # Black out top 280 pixels (ignore this area for motion detection)
-    roi_mask[0:280, :] = 0
 
-    # Additional areas can be masked if needed:
+    # Mask out top 280 pixels of original 1920x1080 frame
+    # This equals ~187 pixels in the 1280x720 inference frame
+    pixels_to_mask_at_inference = int((280 / 1080) * inference_size[1])
+    roi_mask[0:pixels_to_mask_at_inference, :] = 0
+    print(f"Masking top {pixels_to_mask_at_inference} pixels at inference resolution (= 280px at 1080p)")
+
+    # Additional areas can be masked if needed (in inference coordinates):
     # roi_mask[550:720, 0:300] = 0      # Bottom-left corner (parked car)
     # roi_mask[550:720, 980:1280] = 0   # Bottom-right corner
 
