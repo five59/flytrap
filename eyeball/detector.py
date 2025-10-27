@@ -147,6 +147,10 @@ class ObjectDetector:
         self.memory_history = []
         self.last_memory_cleanup = time.time()
 
+        # Display metrics tracking
+        self.last_inference_time_ms = 0.0
+        self.last_motion_pixels = 0
+
     def _get_device(self) -> str:
         """Detect and return the best available device for inference."""
         if torch.cuda.is_available():
@@ -485,21 +489,15 @@ class ObjectDetector:
             import traceback
             traceback.print_exc()
 
-    def _add_metric_overlay(self, frame: np.ndarray, processing_time_ms: float, motion_pixels: int) -> np.ndarray:
-        """Add monitoring metrics overlay to the frame."""
-        if self.headless:
-            print("DEBUG: Skipping overlay - headless mode")
-            return frame
-
-        overlay_frame = frame.copy()
-
+    def _create_metrics_panel(self, processing_time_ms: float, motion_pixels: int, width: int) -> np.ndarray:
+        """Create a metrics panel to display above the video."""
         # Get current metrics
         queue_depth = self.frame_queue.qsize() if hasattr(self, 'frame_queue') else 0
         memory_usage_mb = self._get_memory_usage()
         gstreamer_buffers = self._get_gstreamer_buffer_info()
 
         # Log memory usage for monitoring trends
-        if self.frame_count % 50 == 0:  # More frequent logging
+        if self.frame_count % 50 == 0:
             trend = ""
             if len(self.memory_history) >= 5:
                 recent = self.memory_history[-5:]
@@ -510,43 +508,53 @@ class ObjectDetector:
                     trend = f" ({delta:+.1f}MB trend)"
             print(f"Memory: {memory_usage_mb:.1f}MB{trend}, Queue: {queue_depth}, Objects: {len(self.tracked_objects)}")
 
-        # Define overlay position (top-left corner)
-        x, y = 10, 30
-        line_height = 25
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.7
-        color = (0, 255, 0)  # Bright green text for better visibility
-        thickness = 2
-
-        # Add background rectangle for better readability
-        metrics_text = [
+        # Create metrics in columns
+        col1_metrics = [
             f"Frame: {self.frame_count}",
-            f"Queue: {queue_depth}/50",
+            f"Queue: {queue_depth}/10",
+            f"Objects: {len(self.tracked_objects)}"
+        ]
+        col2_metrics = [
             f"Processing: {processing_time_ms:.1f} ms",
-            f"Memory: {memory_usage_mb:.1f} MB",
-            f"Motion: {motion_pixels}",
+            f"Motion Pixels: {motion_pixels}",
             f"GStreamer: {gstreamer_buffers}"
         ]
+        col3_metrics = [
+            f"Memory: {memory_usage_mb:.1f} MB",
+            f"Device: {self.device}",
+            f"Resolution: {self.inference_size[0]}x{self.inference_size[1]}" if self.inference_size else "Original"
+        ]
 
-        # Calculate background rectangle size
-        max_text_width = max(cv2.getTextSize(text, font, font_scale, thickness)[0][0] for text in metrics_text)
-        bg_width = max_text_width + 20
-        bg_height = len(metrics_text) * line_height + 20
+        # Panel settings
+        panel_height = 90
+        panel = np.zeros((panel_height, width, 3), dtype=np.uint8)
+        panel[:] = (40, 40, 40)  # Dark gray background
 
-        # Draw more opaque background for better visibility
-        overlay = overlay_frame.copy()
-        cv2.rectangle(overlay, (x-5, y-25), (x + bg_width, y + bg_height - 25), (0, 0, 0), -1)
-        cv2.addWeighted(overlay_frame, 0.5, overlay, 0.5, 0, overlay_frame)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.5
+        color = (0, 255, 0)
+        thickness = 1
+        line_height = 25
 
-        # Draw colored border around overlay area
-        cv2.rectangle(overlay_frame, (x-5, y-25), (x + bg_width, y + bg_height - 25), (0, 255, 0), 2)
+        # Calculate column widths
+        col_width = width // 3
 
-        # Draw metrics text
-        for i, text in enumerate(metrics_text):
-            cv2.putText(overlay_frame, text, (x, y + i * line_height),
-                       font, font_scale, color, thickness)
+        # Draw columns
+        columns = [col1_metrics, col2_metrics, col3_metrics]
+        for col_idx, col_text in enumerate(columns):
+            x_offset = col_idx * col_width + 10
+            for row_idx, text in enumerate(col_text):
+                y = 25 + row_idx * line_height
+                cv2.putText(panel, text, (x_offset, y), font, font_scale, color, thickness)
 
-        return overlay_frame
+        return panel
+
+    def _add_metric_overlay(self, frame: np.ndarray, processing_time_ms: float, motion_pixels: int) -> np.ndarray:
+        """Add monitoring metrics overlay to the frame (legacy function for headless mode)."""
+        if self.headless:
+            return frame
+        # In GUI mode, metrics are now shown in separate panel, not overlay
+        return frame
 
     def _setup_gstreamer(self):
         """Set up GStreamer pipeline for SRT streaming."""
@@ -911,8 +919,9 @@ class ObjectDetector:
             cv2.imwrite(screenshot_path, annotated_frame)
             print(f"Screenshot saved: {screenshot_path}")
 
-        # Add metric overlay to the frame
-        annotated_frame = self._add_metric_overlay(annotated_frame, inference_time_ms, motion_pixels)
+        # Store metrics for display panel (before modifying frame)
+        self.last_inference_time_ms = inference_time_ms
+        self.last_motion_pixels = motion_pixels
 
         # Visually black out the masked ROI area on display
         if self.roi_mask is not None:
@@ -1136,12 +1145,45 @@ class ObjectDetector:
 
                 # Display result only if not in headless mode
                 if not self.headless:
-                    cv2.imshow(window_name, annotated_frame)
+                    # Crop to show only ROI (non-masked area)
+                    display_frame = annotated_frame
+                    if self.roi_mask is not None:
+                        # Calculate crop boundaries (original frame coordinates)
+                        # Find first non-zero row in mask (scaled to original size)
+                        if self.inference_size is not None:
+                            display_mask = cv2.resize(self.roi_mask,
+                                (annotated_frame.shape[1], annotated_frame.shape[0]),
+                                interpolation=cv2.INTER_NEAREST)
+                        else:
+                            display_mask = self.roi_mask
+
+                        # Find where mask becomes non-zero (ROI starts)
+                        non_zero_rows = np.any(display_mask > 0, axis=1)
+                        if np.any(non_zero_rows):
+                            first_roi_row = np.argmax(non_zero_rows)
+                            # Crop frame to show only ROI
+                            display_frame = annotated_frame[first_roi_row:, :]
+
+                    # Create metrics panel above the video
+                    metrics_panel = self._create_metrics_panel(
+                        self.last_inference_time_ms,
+                        self.last_motion_pixels,
+                        display_frame.shape[1]
+                    )
+
+                    # Combine metrics panel and video frame vertically
+                    combined_display = np.vstack([metrics_panel, display_frame])
+
+                    cv2.imshow(window_name, combined_display)
 
                 # Clean up frame references immediately after use
                 del annotated_frame
                 if 'frame_bgr' in locals():
                     del frame_bgr
+                if 'display_frame' in locals():
+                    del display_frame
+                if 'combined_display' in locals():
+                    del combined_display
 
                 # Memory management and progress reporting
                 # Reduced from every 20 frames to every 50 frames (~8 seconds at 6 FPS)
