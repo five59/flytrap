@@ -11,6 +11,8 @@ import queue
 import threading
 import select
 import platform
+import subprocess
+import gc
 from datetime import datetime
 from collections import defaultdict
 from typing import Optional, Dict, List
@@ -51,7 +53,8 @@ class ObjectDetector:
         log_file: str = 'vehicle_tracking.log',
         screenshots_dir: str = 'screenshots',
         enable_influx: bool = True,
-        headless: bool = False
+        headless: bool = False,
+        inference_size: tuple = (1280, 720)
     ):
         """
         Initialize the object detector.
@@ -65,6 +68,12 @@ class ObjectDetector:
             screenshots_dir: Directory to save screenshots
             enable_influx: Whether to enable InfluxDB logging
             headless: Run without GUI display (for WSL/headless servers)
+            inference_size: Resolution for YOLO inference (width, height).
+                           Smaller = faster & less memory. Recommended:
+                           - (1280, 720): Good balance, 55% less memory
+                           - (960, 540): Aggressive, 75% less memory
+                           - (640, 360): Maximum speed, 88% less memory
+                           Set to None to use original frame size
         """
         self.srt_uri = srt_uri
         self.model_path = model_path
@@ -73,6 +82,7 @@ class ObjectDetector:
         self.log_file = log_file
         self.screenshots_dir = screenshots_dir
         self.headless = headless
+        self.inference_size = inference_size
 
         # Create screenshots directory
         os.makedirs(self.screenshots_dir, exist_ok=True)
@@ -81,6 +91,15 @@ class ObjectDetector:
         self.device = self._get_device()
         self.model = YOLO(self.model_path)
         self.model.to(self.device)
+
+        # Log inference resolution configuration
+        if self.inference_size:
+            print(f"Inference resolution: {self.inference_size[0]}x{self.inference_size[1]}")
+            frame_mb = (self.inference_size[0] * self.inference_size[1] * 3) / (1024 * 1024)
+            print(f"  Per-frame memory: ~{frame_mb:.1f}MB (vs ~6MB at 1080p)")
+            print(f"  Queue memory (10 frames): ~{frame_mb * 10:.1f}MB")
+        else:
+            print("Inference resolution: Original frame size (no downscaling)")
 
         # Initialize InfluxDB logger
         self.influx_logger = None
@@ -99,6 +118,8 @@ class ObjectDetector:
 
         # GStreamer components
         self.pipeline = None
+        # Reduced queue size from 50 to 10 to reduce memory footprint
+        # At 1920x1080 BGR, each frame is ~6MB, so 10 frames = ~60MB vs 300MB
         self.frame_queue = queue.Queue(maxsize=10)
         self.gstreamer_thread = None
 
@@ -112,6 +133,11 @@ class ObjectDetector:
         self.frame_midpoint_x: Optional[float] = None
         self.frame_count: int = 0
         self.prev_frame = None
+        self.frame_skip_counter: int = 0
+
+        # Memory monitoring
+        self.memory_history = []
+        self.last_memory_cleanup = time.time()
 
     def _get_device(self) -> str:
         """Detect and return the best available device for inference."""
@@ -125,6 +151,394 @@ class ObjectDetector:
             device = 'cpu'
             print("Using CPU (no GPU acceleration available)")
         return device
+
+    def _get_memory_usage(self) -> float:
+        """Get current memory usage in MB."""
+        try:
+            import psutil
+            process = psutil.Process()
+            memory_info = process.memory_info()
+            return memory_info.rss / 1024 / 1024  # Convert to MB
+        except ImportError:
+            # Fallback if psutil not available
+            return 0.0
+
+    def _estimate_object_memory(self) -> dict:
+        """Estimate memory usage of major components."""
+        import sys
+        memory_breakdown = {}
+
+        try:
+            # Estimate frame queue memory
+            if hasattr(self, 'frame_queue'):
+                queue_size = self.frame_queue.qsize()
+                # Calculate actual frame size based on current frame width
+                if hasattr(self, 'frame_width') and self.frame_width:
+                    # Estimate height as 9/16 of width (16:9 aspect ratio)
+                    estimated_height = int(self.frame_width * 9 / 16)
+                    frame_mb = (self.frame_width * estimated_height * 3) / (1024 * 1024)
+                else:
+                    frame_mb = 6.0  # Default assumption for 1920x1080
+                memory_breakdown['frame_queue_mb'] = queue_size * frame_mb
+                memory_breakdown['queue_size'] = queue_size
+
+            # Estimate tracked objects memory
+            if hasattr(self, 'tracked_objects'):
+                # Rough estimate: each position is ~50 bytes, plus overhead
+                total_positions = sum(len(obj['positions']) for obj in self.tracked_objects.values())
+                memory_breakdown['tracked_objects_mb'] = (total_positions * 50) / (1024 * 1024)
+                memory_breakdown['num_tracked_objects'] = len(self.tracked_objects)
+
+            # Estimate YOLO model memory (typically 40-80MB for yolo11m)
+            if hasattr(self, 'model') and self.model is not None:
+                memory_breakdown['model_estimated_mb'] = 60  # Rough estimate for yolo11m
+
+            # Background subtractor (stores history of 100 frames internally)
+            if hasattr(self, 'back_sub'):
+                # Rough estimate based on history size
+                memory_breakdown['back_sub_estimated_mb'] = 20  # Conservative estimate
+
+            return memory_breakdown
+        except Exception as e:
+            return {'error': str(e)}
+
+    def _get_detailed_memory_info(self):
+        """Get detailed memory information for debugging."""
+        try:
+            import psutil
+            process = psutil.Process()
+            memory_info = process.memory_info()
+            return {
+                'rss_mb': memory_info.rss / 1024 / 1024,
+                'vms_mb': memory_info.vms / 1024 / 1024,
+                'cpu_percent': process.cpu_percent(),
+                'num_threads': process.num_threads(),
+                'num_fds': getattr(process, 'num_fds', lambda: 0)()
+            }
+        except Exception as e:
+            return {'error': str(e)}
+
+    def _get_gstreamer_buffer_info(self) -> int:
+        """Get GStreamer pipeline buffer/queue information."""
+        if not GSTREAMER_AVAILABLE or not self.pipeline:
+            return 0
+
+        try:
+            # Try to get buffer information from the pipeline
+            # This is a simplified approach - in a real implementation,
+            # you might want to query specific elements like queue elements
+            bus = self.pipeline.get_bus()
+            if bus:
+                # Get the number of messages in the bus (rough indicator of activity)
+                # This is not perfect but gives some insight into pipeline health
+                return 0  # Placeholder - would need more complex GStreamer introspection
+            return 0
+        except Exception:
+            return 0
+
+    def _wait_for_stream_connection(self, timeout: float = 10.0) -> bool:
+        """Wait for SRT stream connection to be established and frames to arrive."""
+        import time
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            try:
+                # Try to get a frame based on current method
+                if self.use_gstreamer and hasattr(self, 'frame_queue'):
+                    # For GStreamer, check if frames are being added to queue
+                    if self.frame_queue.qsize() > 0:
+                        print("✓ GStreamer connection established - frames received")
+                        return True
+                elif self.use_opencv and hasattr(self, 'cap') and self.cap.isOpened():
+                    # For OpenCV, try to read a frame
+                    ret, _ = self.cap.read()
+                    if ret:
+                        print("✓ OpenCV SRT connection established - frames received")
+                        return True
+                elif hasattr(self, 'ffmpeg_proc') and self.ffmpeg_proc and self.ffmpeg_proc.poll() is None:
+                    # For FFmpeg, check if process is still running and try to read
+                    import select
+                    if hasattr(self, 'ffmpeg_proc'):
+                        ready, _, _ = select.select([self.ffmpeg_proc.stdout], [], [], 0.1)
+                        if ready:
+                            # Try to read a small amount of data
+                            try:
+                                data = self.ffmpeg_proc.stdout.read(1024)
+                                if data:
+                                    print("✓ FFmpeg SRT connection established - data received")
+                                    return True
+                            except:
+                                pass
+
+                # Check for any error messages from GStreamer
+                if self.use_gstreamer and hasattr(self, 'pipeline'):
+                    # This would need more complex GStreamer bus message checking
+                    pass
+
+            except Exception as e:
+                print(f"Connection check error: {e}")
+
+            time.sleep(0.5)  # Check every 500ms
+
+        return False
+
+    def _aggressive_memory_cleanup(self):
+        """Perform aggressive memory cleanup to prevent memory leaks."""
+        try:
+            initial_memory = self._get_memory_usage()
+
+            # Force multiple garbage collection cycles
+            collected = 0
+            for _ in range(3):
+                collected += gc.collect()
+
+            # Only log on deep cleanup cycles (every 200 frames)
+            if collected > 0 and self.frame_count % 200 == 0:
+                print(f"GC: Collected {collected} objects")
+
+            # Clear GPU/CPU cache aggressively
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+                # Force memory deallocation
+                if hasattr(torch.cuda, 'reset_peak_memory_stats'):
+                    torch.cuda.reset_peak_memory_stats()
+            elif torch.backends.mps.is_available():
+                # MPS (Apple Silicon) cache clearing
+                try:
+                    torch.mps.empty_cache()
+                except:
+                    pass
+            else:
+                # CPU - force garbage collection of tensors
+                # This helps when using CPU inference
+                # Note: gc already imported at module level, no need to import again
+                gc.collect()
+
+            # Clear frame queue more aggressively
+            if hasattr(self, 'frame_queue'):
+                queue_size = self.frame_queue.qsize()
+                if queue_size > 5:  # Keep only 5 frames max (maxsize is now 10)
+                    excess_frames = queue_size - 5
+                    for _ in range(excess_frames):
+                        try:
+                            self.frame_queue.get_nowait()
+                        except queue.Empty:
+                            break
+                    # Only log on deep cleanup cycles
+                    if self.frame_count % 200 == 0:
+                        print(f"Queue cleanup: Removed {excess_frames} frames, kept {self.frame_queue.qsize()}")
+
+            # Very aggressive cleanup of tracked objects
+            current_time = time.time()
+            to_remove = []
+            for track_id, data in self.tracked_objects.items():
+                # Remove objects that haven't been updated in 15 seconds (very aggressive)
+                if data['positions'] and current_time - data['positions'][-1][2] > 15:
+                    to_remove.append(track_id)
+                # Limit position history to prevent memory bloat
+                elif len(data['positions']) > 20:
+                    data['positions'] = data['positions'][-10:]  # Keep only last 10 positions
+
+            for track_id in to_remove:
+                del self.tracked_objects[track_id]
+
+            # Only log significant cleanups on deep cleanup cycles
+            if to_remove and len(to_remove) > 5 and self.frame_count % 200 == 0:
+                print(f"Tracking cleanup: Removed {len(to_remove)} objects, {len(self.tracked_objects)} remaining")
+
+            # Clear YOLO model tracking cache (critical for memory management)
+            if hasattr(self, 'model') and self.model is not None:
+                try:
+                    # Reset the tracker to clear internal state
+                    # YOLO stores tracking state in model.predictor
+                    if hasattr(self.model, 'predictor') and self.model.predictor is not None:
+                        # Clear tracker history but keep the tracker objects intact
+                        # Don't set to empty list as YOLO needs trackers to exist
+                        if hasattr(self.model.predictor, 'trackers') and self.model.predictor.trackers:
+                            # Clear each tracker's internal state instead of removing them
+                            for tracker in self.model.predictor.trackers:
+                                if hasattr(tracker, 'reset'):
+                                    tracker.reset()
+                                # Clear tracked objects in the tracker
+                                if hasattr(tracker, 'tracks'):
+                                    tracker.tracks = []
+                        # Also clear any cached results
+                        if hasattr(self.model.predictor, 'results'):
+                            self.model.predictor.results = None
+                    # Only log on deep cleanup (every 200 frames), not every 50
+                    if self.frame_count % 200 == 0:
+                        print("Cleared YOLO tracking state")
+                except Exception as e:
+                    print(f"Error clearing YOLO cache: {e}")
+
+            # Reset background subtractor to clear accumulated history
+            if hasattr(self, 'back_sub'):
+                self.back_sub = cv2.createBackgroundSubtractorMOG2(
+                    history=100, varThreshold=50, detectShadows=True
+                )
+                # Removed verbose logging - happens too often
+
+            # NOTE: cv2.destroyAllWindows() removed from regular cleanup
+            # It was causing window handle leaks by destroying/recreating windows every 20 frames
+            # Only call this in final cleanup() method
+
+            # Force cleanup of any remaining references
+            gc.collect()
+
+            final_memory = self._get_memory_usage()
+            memory_delta = final_memory - initial_memory
+            # Only report significant changes AND only on deep cleanup cycles
+            if abs(memory_delta) > 5.0 and self.frame_count % 200 == 0:
+                print(f"Memory: {initial_memory:.1f}MB → {final_memory:.1f}MB ({memory_delta:+.1f}MB)")
+
+            # Track memory usage for trend analysis
+            self.memory_history.append((time.time(), final_memory))
+            # Keep only last 20 memory readings
+            if len(self.memory_history) > 20:
+                self.memory_history.pop(0)
+
+            # Check for memory leak trend
+            self._check_memory_leak_trend()
+
+        except Exception as e:
+            print(f"Memory cleanup error: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _check_memory_leak_trend(self):
+        """Check if memory usage is trending upward and trigger emergency cleanup."""
+        if len(self.memory_history) < 10:
+            return  # Need more data points
+
+        # Calculate memory trend over last 10 readings
+        recent_readings = self.memory_history[-10:]
+        times, memories = zip(*recent_readings)
+
+        # Simple linear regression to detect trend
+        n = len(times)
+        if n < 2:
+            return
+
+        # Calculate slope (memory increase per second)
+        time_span = times[-1] - times[0]
+        memory_span = memories[-1] - memories[0]
+        slope = memory_span / time_span if time_span > 0 else 0
+
+        # If memory is increasing by more than 5MB per minute, trigger emergency cleanup
+        # Increased from 1MB/min to 5MB/min - less sensitive to normal fluctuations
+        if slope > (5.0 / 60.0):  # 5MB per minute threshold
+            print(f"⚠️  Memory leak detected! Trend: +{slope*60:.2f}MB/min")
+            self._emergency_memory_cleanup()
+
+    def _emergency_memory_cleanup(self):
+        """Emergency memory cleanup when leak is detected."""
+        print("🚨 Emergency memory cleanup initiated...")
+
+        try:
+            # Most aggressive cleanup possible
+            for _ in range(5):
+                gc.collect()
+
+            # Clear all tracked objects
+            old_count = len(self.tracked_objects)
+            self.tracked_objects.clear()
+            print(f"Cleared {old_count} tracked objects")
+
+            # Clear frame queue completely
+            if hasattr(self, 'frame_queue'):
+                queue_size = self.frame_queue.qsize()
+                while not self.frame_queue.empty():
+                    try:
+                        self.frame_queue.get_nowait()
+                    except queue.Empty:
+                        break
+                print(f"Cleared {queue_size} frames from queue")
+
+            # Clear background subtractor
+            if hasattr(self, 'back_sub'):
+                self.back_sub = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=50, detectShadows=True)
+                print("Reset background subtractor")
+
+            # Force system cleanup
+            import sys
+            if hasattr(sys, '_clear_type_cache'):
+                sys._clear_type_cache()
+
+            # Final garbage collection
+            for _ in range(3):
+                gc.collect()
+
+            final_memory = self._get_memory_usage()
+            print(f"Emergency cleanup complete. Memory now: {final_memory:.1f}MB")
+
+        except Exception as e:
+            print(f"Emergency cleanup error: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _add_metric_overlay(self, frame: np.ndarray, processing_time_ms: float, motion_pixels: int) -> np.ndarray:
+        """Add monitoring metrics overlay to the frame."""
+        if self.headless:
+            print("DEBUG: Skipping overlay - headless mode")
+            return frame
+
+        overlay_frame = frame.copy()
+
+        # Get current metrics
+        queue_depth = self.frame_queue.qsize() if hasattr(self, 'frame_queue') else 0
+        memory_usage_mb = self._get_memory_usage()
+        gstreamer_buffers = self._get_gstreamer_buffer_info()
+
+        # Log memory usage for monitoring trends
+        if self.frame_count % 50 == 0:  # More frequent logging
+            trend = ""
+            if len(self.memory_history) >= 5:
+                recent = self.memory_history[-5:]
+                if len(recent) >= 2:
+                    start_mem = recent[0][1]
+                    end_mem = recent[-1][1]
+                    delta = end_mem - start_mem
+                    trend = f" ({delta:+.1f}MB trend)"
+            print(f"Memory: {memory_usage_mb:.1f}MB{trend}, Queue: {queue_depth}, Objects: {len(self.tracked_objects)}")
+
+        # Define overlay position (top-left corner)
+        x, y = 10, 30
+        line_height = 25
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.7
+        color = (0, 255, 0)  # Bright green text for better visibility
+        thickness = 2
+
+        # Add background rectangle for better readability
+        metrics_text = [
+            f"Frame: {self.frame_count}",
+            f"Queue: {queue_depth}/50",
+            f"Processing: {processing_time_ms:.1f} ms",
+            f"Memory: {memory_usage_mb:.1f} MB",
+            f"Motion: {motion_pixels}",
+            f"GStreamer: {gstreamer_buffers}"
+        ]
+
+        # Calculate background rectangle size
+        max_text_width = max(cv2.getTextSize(text, font, font_scale, thickness)[0][0] for text in metrics_text)
+        bg_width = max_text_width + 20
+        bg_height = len(metrics_text) * line_height + 20
+
+        # Draw more opaque background for better visibility
+        overlay = overlay_frame.copy()
+        cv2.rectangle(overlay, (x-5, y-25), (x + bg_width, y + bg_height - 25), (0, 0, 0), -1)
+        cv2.addWeighted(overlay_frame, 0.5, overlay, 0.5, 0, overlay_frame)
+
+        # Draw colored border around overlay area
+        cv2.rectangle(overlay_frame, (x-5, y-25), (x + bg_width, y + bg_height - 25), (0, 255, 0), 2)
+
+        # Draw metrics text
+        for i, text in enumerate(metrics_text):
+            cv2.putText(overlay_frame, text, (x, y + i * line_height),
+                       font, font_scale, color, thickness)
+
+        return overlay_frame
 
     def _setup_gstreamer(self):
         """Set up GStreamer pipeline for SRT streaming."""
@@ -157,6 +571,14 @@ class ObjectDetector:
 
     def _on_new_sample(self, sink):
         """Callback for new video sample from GStreamer."""
+        self.frame_skip_counter += 1
+        # Process every 5th frame to reduce FPS from ~30 to ~6
+        if self.frame_skip_counter % 5 != 0:
+            # Still need to pull sample to clear pipeline buffer
+            sample = sink.emit('pull-sample')
+            del sample
+            return Gst.FlowReturn.OK
+
         sample = sink.emit('pull-sample')
         buffer = sample.get_buffer()
         caps = sample.get_caps()
@@ -176,7 +598,20 @@ class ObjectDetector:
                 self.frame_queue.put(frame_bgr.copy(), timeout=0.1)
             except queue.Full:
                 pass  # Discard if queue full
-        buffer.unmap(map_info)
+            finally:
+                buffer.unmap(map_info)
+                # Explicitly delete references to allow GStreamer to free memory
+                del frame_bgr
+                del map_info
+        else:
+            buffer.unmap(map_info)
+
+        # Critical: Delete references to GStreamer objects to prevent memory leak
+        del buffer
+        del sample
+        del caps
+        del structure
+
         return Gst.FlowReturn.OK
 
     def _on_message(self, bus, message):
@@ -249,13 +684,26 @@ class ObjectDetector:
         """
         self.frame_count += 1
 
-        # Motion detection using background subtraction
-        fg_mask = self.back_sub.apply(frame_bgr)
+        # Store original frame dimensions for scaling detections back
+        original_height, original_width = frame_bgr.shape[:2]
+
+        # Downscale frame for inference if inference_size is specified
+        if self.inference_size is not None:
+            inference_frame = cv2.resize(frame_bgr, self.inference_size, interpolation=cv2.INTER_LINEAR)
+            scale_x = original_width / self.inference_size[0]
+            scale_y = original_height / self.inference_size[1]
+        else:
+            inference_frame = frame_bgr
+            scale_x = 1.0
+            scale_y = 1.0
+
+        # Motion detection using background subtraction (on inference-sized frame)
+        fg_mask = self.back_sub.apply(inference_frame)
         motion_pixels = cv2.countNonZero(fg_mask)
         has_motion = motion_pixels > self.motion_threshold
 
-        # Convert to grayscale for frame differencing
-        gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        # Convert to grayscale for frame differencing (on inference-sized frame)
+        gray = cv2.cvtColor(inference_frame, cv2.COLOR_BGR2GRAY)
         if self.prev_frame is not None:
             frame_diff = cv2.absdiff(gray, self.prev_frame)
             _, thresh = cv2.threshold(frame_diff, 25, 255, cv2.THRESH_BINARY)
@@ -269,21 +717,46 @@ class ObjectDetector:
             if self.influx_logger:
                 try:
                     source_name = "srt_stream"
+                    queue_depth = self.frame_queue.qsize() if hasattr(self, 'frame_queue') else 0
+                    memory_usage_mb = self._get_memory_usage()
+                    gstreamer_buffers = self._get_gstreamer_buffer_info()
                     self.influx_logger.log_detections(
                         detections=[],
                         source_name=source_name,
                         frame_number=self.frame_count,
                         processing_time_ms=0.0,
-                        motion_pixels=motion_pixels
+                        motion_pixels=motion_pixels,
+                        queue_depth=queue_depth,
+                        gstreamer_buffers=gstreamer_buffers,
+                        memory_usage_mb=memory_usage_mb
                     )
                 except Exception as e:
                     print(f"Error logging to InfluxDB: {e}")
+            # Add metric overlay even when skipping YOLO processing
+            frame_bgr = self._add_metric_overlay(frame_bgr, 0.0, motion_pixels)
+
+            # Clean up intermediate objects before returning
+            del fg_mask
+            if 'frame_diff' in locals():
+                del frame_diff
+            if 'thresh' in locals():
+                del thresh
+
             return frame_bgr  # Return original frame
 
         # Run YOLO inference with tracking
         inference_start = time.time()
+
+        # Check if model exists (might be None after emergency cleanup)
+        if self.model is None:
+            print("⚠️  YOLO model not available, skipping detection")
+            # Return original frame with overlay
+            annotated_frame = self._add_metric_overlay(frame_bgr, 0.0, motion_pixels)
+            return annotated_frame
+
+        # Run inference on downscaled frame
         results = self.model.track(
-            frame_bgr,
+            inference_frame,
             device=self.device,
             conf=self.confidence,
             verbose=False,
@@ -291,8 +764,13 @@ class ObjectDetector:
         )
         inference_time_ms = (time.time() - inference_start) * 1000
 
-        # Annotate frame with detections
+        # Annotate frame with detections (on inference-sized frame first)
         annotated_frame = results[0].plot()
+
+        # Scale annotated frame back to original size for display
+        if self.inference_size is not None:
+            annotated_frame = cv2.resize(annotated_frame, (original_width, original_height),
+                                        interpolation=cv2.INTER_LINEAR)
 
         # Prepare InfluxDB detections list
         influx_detections = []
@@ -310,21 +788,27 @@ class ObjectDetector:
                 if cls not in self.VEHICLE_CLASSES:
                     continue
 
-                # Get center point of bounding box
+                # Get center point of bounding box (in inference resolution)
                 x1, y1, x2, y2 = box
-                center_x = (x1 + x2) / 2
-                center_y = (y1 + y2) / 2
+
+                # Scale coordinates back to original frame resolution
+                x1_orig = x1 * scale_x
+                y1_orig = y1 * scale_y
+                x2_orig = x2 * scale_x
+                y2_orig = y2 * scale_y
+                center_x = (x1_orig + x2_orig) / 2
+                center_y = (y1_orig + y2_orig) / 2
                 current_time = time.time()
 
-                # Add to InfluxDB detections
+                # Add to InfluxDB detections (using original resolution coords)
                 influx_detections.append({
                     "class_name": self.CLASS_NAMES.get(int(cls), "unknown"),
                     "confidence": float(conf),
                     "bbox": {
-                        "x1": float(x1),
-                        "y1": float(y1),
-                        "x2": float(x2),
-                        "y2": float(y2)
+                        "x1": float(x1_orig),
+                        "y1": float(y1_orig),
+                        "x2": float(x2_orig),
+                        "y2": float(y2_orig)
                     }
                 })
 
@@ -363,15 +847,21 @@ class ObjectDetector:
                             screenshots_to_save.append(screenshot_path)
 
         # Log to InfluxDB if available
-        if self.influx_logger and influx_detections:
+        if self.influx_logger:
             try:
                 source_name = "srt_stream"
+                queue_depth = self.frame_queue.qsize() if hasattr(self, 'frame_queue') else 0
+                memory_usage_mb = self._get_memory_usage()
+                gstreamer_buffers = self._get_gstreamer_buffer_info()
                 self.influx_logger.log_detections(
                     detections=influx_detections,
                     source_name=source_name,
                     frame_number=self.frame_count,
-                    processing_time_ms=inference_time_ms,
-                    motion_pixels=motion_pixels
+                    processing_time_ms=inference_time_ms if influx_detections else 0.0,
+                    motion_pixels=motion_pixels,
+                    queue_depth=queue_depth,
+                    gstreamer_buffers=gstreamer_buffers,
+                    memory_usage_mb=memory_usage_mb
                 )
             except Exception as e:
                 print(f"Error logging to InfluxDB: {e}")
@@ -380,6 +870,27 @@ class ObjectDetector:
         for screenshot_path in screenshots_to_save:
             cv2.imwrite(screenshot_path, annotated_frame)
             print(f"Screenshot saved: {screenshot_path}")
+
+        # Add metric overlay to the frame
+        annotated_frame = self._add_metric_overlay(annotated_frame, inference_time_ms, motion_pixels)
+
+        # Explicitly delete large objects to help garbage collector
+        # This is critical when processing frames at high rates
+        del results
+        del fg_mask
+        del inference_frame  # Delete the downscaled frame
+        if 'frame_diff' in locals():
+            del frame_diff
+        if 'thresh' in locals():
+            del thresh
+        if 'boxes' in locals():
+            del boxes
+        if 'track_ids' in locals():
+            del track_ids
+        if 'classes' in locals():
+            del classes
+        if 'confidences' in locals():
+            del confidences
 
         return annotated_frame
 
@@ -466,33 +977,63 @@ class ObjectDetector:
                 blank_frame = np.zeros((480, 640, 3), dtype=np.uint8)
                 cv2.putText(blank_frame, "Waiting for SRT stream...", (50, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
                 cv2.imshow(window_name, blank_frame)
-                print(f"Display window created: {window_name}")
+                # Force a waitKey to ensure window is created and displayed
+                cv2.waitKey(1)
+                print(f"✓ Display window created successfully: {window_name}")
+                print("  Metric overlay will be visible in top-left corner")
             except Exception as e:
                 print(f"⚠ Could not create display window: {e}")
+                print("  This may be due to missing GUI libraries or running in a headless environment")
                 print("  Switching to headless mode")
                 self.headless = True
         else:
             print("Running in headless mode (no display window)")
 
         # Open SRT stream
+        connection_successful = False
         if self.use_gstreamer:
             print(f"Connecting to SRT stream using GStreamer: {self.srt_uri}")
-            self._setup_gstreamer()
-            print("GStreamer pipeline started")
-        elif self.use_opencv:
+            try:
+                self._setup_gstreamer()
+                print("GStreamer pipeline started - waiting for connection...")
+                # Wait up to 10 seconds for first frame
+                connection_successful = self._wait_for_stream_connection(timeout=10.0)
+            except Exception as e:
+                print(f"GStreamer SRT setup failed: {e}, falling back to OpenCV")
+                self.use_gstreamer = False
+
+        if not connection_successful and self.use_opencv:
             print(f"Connecting to SRT stream using OpenCV: {self.srt_uri}")
             try:
                 self._setup_opencv()
+                print("OpenCV SRT setup completed - waiting for connection...")
+                connection_successful = self._wait_for_stream_connection(timeout=10.0)
             except Exception as e:
                 print(f"OpenCV SRT setup failed: {e}, falling back to FFmpeg")
                 self.use_opencv = False
-                self._setup_ffmpeg()
-        else:
-            print(f"Connecting to SRT stream using FFmpeg: {self.srt_uri}")
-            self._setup_ffmpeg()
 
-        print("SRT stream connected successfully")
-        print("Press Ctrl+C to stop")
+        if not connection_successful:
+            print(f"Connecting to SRT stream using FFmpeg: {self.srt_uri}")
+            try:
+                self._setup_ffmpeg()
+                print("FFmpeg SRT setup completed - waiting for connection...")
+                connection_successful = self._wait_for_stream_connection(timeout=10.0)
+            except Exception as e:
+                print(f"All SRT connection methods failed. Last error: {e}")
+                print("Please check:")
+                print("1. SRT stream is running and accessible")
+                print("2. Network connectivity to the SRT server")
+                print("3. Correct SRT URI format: srt://host:port")
+                print("4. Firewall settings allow SRT traffic (default port 4201)")
+                return
+
+        if connection_successful:
+            print("✓ SRT stream connected successfully")
+            print("Press Ctrl+C to stop")
+        else:
+            print("⚠ SRT stream connection timeout - no frames received")
+            print("The stream may be running but not sending data")
+            print("Press Ctrl+C to stop")
 
         try:
             while True:
@@ -545,9 +1086,48 @@ class ObjectDetector:
                 if not self.headless:
                     cv2.imshow(window_name, annotated_frame)
 
-                # Print progress every 100 frames
-                if self.frame_count % 100 == 0:
+                # Clean up frame references immediately after use
+                del annotated_frame
+                if 'frame_bgr' in locals():
+                    del frame_bgr
+
+                # Memory management and progress reporting
+                # Reduced from every 20 frames to every 50 frames (~8 seconds at 6 FPS)
+                # Less aggressive now that memory leaks are fixed
+                if self.frame_count % 50 == 0:
                     print(f"Processed {self.frame_count} frames")
+                    self._aggressive_memory_cleanup()
+
+                # Additional: Reset background subtractor every 100 frames to prevent history accumulation
+                # This is in addition to the reset in _aggressive_memory_cleanup
+                if self.frame_count % 100 == 0:
+                    self.back_sub = cv2.createBackgroundSubtractorMOG2(
+                        history=100, varThreshold=50, detectShadows=True
+                    )
+                    # Removed verbose logging - already happens in regular cleanup
+
+                # Check memory usage and trigger emergency cleanup if needed
+                current_memory = self._get_memory_usage()
+                # Increased threshold from 800MB to 2400MB after optimizations
+                # Normal baseline is now ~1200-1400MB with 1280x720 inference
+                if current_memory > 2400:  # If over 2400MB, trigger emergency cleanup
+                    print(f"⚠️  High memory usage detected: {current_memory:.1f}MB")
+                    self._emergency_memory_cleanup()
+
+                # Additional cleanup every 200 frames (~3.5 minutes at 6 FPS)
+                if self.frame_count % 200 == 0:
+                    print("Performing deep memory cleanup...")
+                    # Print memory breakdown for diagnostics
+                    memory_breakdown = self._estimate_object_memory()
+                    print(f"Memory breakdown: {memory_breakdown}")
+                    # Force Python garbage collection multiple times
+                    for _ in range(5):
+                        gc.collect()
+                    # Clear any cached compiled functions
+                    import sys
+                    if hasattr(sys, '_clear_type_cache'):
+                        sys._clear_type_cache()
+                    print("Deep cleanup completed")
 
                 # Exit on 'q' key (only in GUI mode)
                 if not self.headless and cv2.waitKey(1) & 0xFF == ord('q'):

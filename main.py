@@ -13,11 +13,14 @@ def main():
     """Run the object detector."""
     import sys
 
-    # Auto-detect headless mode (no DISPLAY)
-    headless = not os.environ.get('DISPLAY')
+    # Auto-detect headless mode (no DISPLAY or GUI not available)
+    display_env = os.environ.get('DISPLAY')
+    headless = not display_env
 
     if headless:
         print("No DISPLAY detected - running in headless mode")
+    else:
+        print(f"DISPLAY detected: {display_env} - attempting GUI mode")
 
     # Get SRT URI from command line or use default
     if len(sys.argv) > 1:
@@ -34,7 +37,16 @@ def main():
     else:
         srt_uri += '&timeout=5000000'
 
-    detector = ObjectDetector(srt_uri=srt_uri, headless=headless)
+    # Configure inference resolution for memory optimization
+    # Default: 1280x720 (55% less memory than 1080p, good detection quality)
+    # Options: (1280, 720), (960, 540), (640, 360), or None for original size
+    inference_size = (1280, 720)
+
+    detector = ObjectDetector(
+        srt_uri=srt_uri,
+        headless=headless,
+        inference_size=inference_size
+    )
     detector.run()
 
 
