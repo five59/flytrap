@@ -1034,9 +1034,8 @@ class ObjectDetector:
         if not self.headless:
             try:
                 # Create window with AUTOSIZE flag for fixed size (no resizing)
-                cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE)
-                # Set window properties to remove decorations/buttons (platform-dependent)
-                cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
+                # Use WINDOW_AUTOSIZE to prevent OpenCV from adding toolbar buttons
+                cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE | cv2.WINDOW_GUI_NORMAL)
 
                 # Show initial blank frame
                 blank_frame = np.zeros((window_size[1], window_size[0], 3), dtype=np.uint8)
