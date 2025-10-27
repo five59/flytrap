@@ -1,0 +1,114 @@
+{
+  "title": "Eyeball Object Detection",
+  "tags": ["eyeball", "object-detection"],
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Detection Count Over Time",
+      "type": "graph",
+      "targets": [
+        {
+          "query": "from(bucket: \"detections\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"frame\") |> filter(fn: (r) => r._field == \"detection_count\")",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 2,
+      "title": "Processing Time (ms)",
+      "type": "graph",
+      "targets": [
+        {
+          "query": "from(bucket: \"detections\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"frame\") |> filter(fn: (r) => r._field == \"processing_time_ms\")",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      }
+    },
+    {
+      "id": 3,
+      "title": "Object Classes Detected",
+      "type": "table",
+      "targets": [
+        {
+          "query": "from(bucket: \"detections\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"detection\") |> group(columns: [\"class\"]) |> count()",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      }
+    },
+    {
+      "id": 4,
+      "title": "Left-to-Right Vehicle Count (Hourly)",
+      "type": "graph",
+      "targets": [
+        {
+          "query": "from(bucket: \"detections\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"direction\" and r.direction == \"left-to-right\") |> aggregateWindow(every: 1h, fn: count)",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      }
+    },
+    {
+      "id": 5,
+      "title": "Right-to-Left Vehicle Count (Hourly)",
+      "type": "graph",
+      "targets": [
+        {
+          "query": "from(bucket: \"detections\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"direction\" and r.direction == \"right-to-left\") |> aggregateWindow(every: 1h, fn: count)",
+          "refId": "A"
+        }
+      ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 16
+        }
+      },
+      {
+        "id": 6,
+        "title": "Motion Detection",
+        "type": "graph",
+        "targets": [
+          {
+            "query": "from(bucket: \"detections\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"frame\") |> filter(fn: (r) => r._field == \"motion_pixels\")",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 24
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "5s"
+  }

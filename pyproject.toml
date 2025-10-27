@@ -5,11 +5,15 @@ description = "Real-time object detection and tracking using YOLO11 with NDI vid
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "cyndilib>=0.0.9",
+    "ffmpeg-python>=0.2.0",
+    "influxdb-client>=1.49.0",
     "jupyterlab>=4.4.10",
     "lap>=0.5.12",
     "numpy>=2.3.4",
     "opencv-python>=4.11.0.86",
+    "pycairo>=1.28.0",
+    "pygobject>=3.54.5",
+    "python-dotenv>=1.2.1",
     "tqdm>=4.67.1",
     "ultralytics>=8.3.221",
 ]

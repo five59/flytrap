@@ -1,73 +1,66 @@
 # Eyeball - Real-time Object Detection with NDI
 
-Real-time object detection and tracking using YOLO11 with NDI video streams. Tracks vehicles, people, and bicycles with direction detection, speed calculation, and automatic screenshot capture.
+Real-time object detection and tracking using YOLO11 with NDI video streams. Tracks vehicles, people, and bicycles with direction detection, speed calculation, and automatic screenshot capture. Includes time-series metrics storage with InfluxDB.
 
 ## Features
 
-- Real-time object detection using YOLO11 medium model
-- NDI video stream input support
-- Direction detection (left-to-right / right-to-left)
-- Speed calculation in mph
-- Automatic screenshot capture for right-to-left movement
-- Midpoint crossing detection for accurate classification
-- Hardware acceleration support (CUDA, MPS, or CPU)
+- **Real-time object detection** using YOLO11 medium model
+- **NDI video stream input** support
+- **Direction detection** (left-to-right / right-to-left)
+- **Speed calculation** in mph
+- **Automatic screenshot capture** for right-to-left movement
+- **Midpoint crossing detection** for accurate classification
+- **Hardware acceleration** support (CUDA, MPS, or CPU)
+- **Time-series metrics** storage with InfluxDB
+- **Headless mode** for WSL/SSH environments (auto-detected)
 
-## Setup
+## Quick Start
 
 ### 1. Install Dependencies
 
 ```bash
-# Install base dependencies
 uv sync
 ```
 
-### 2. Install PyTorch (Platform-Specific)
-
-#### For Mac M4 (Apple Silicon with MPS):
-```bash
-uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-```
-
-#### For Windows/Linux with NVIDIA CUDA 12.1:
-```bash
-uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-```
-
-#### For Windows/Linux with NVIDIA CUDA 11.8:
-```bash
-uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-```
-
-### 3. Configuration
-
-The script will automatically detect and use the best available hardware:
-- **CUDA**: Nvidia GPU acceleration
-- **MPS**: Apple Silicon acceleration
-- **CPU**: Fallback if no GPU available
-
-## Usage
+### 2. (Optional) Start InfluxDB
 
 ```bash
-uv run python ndi-to-yolo.py
+# Copy environment template
+cp .env.example .env
+
+# Start InfluxDB container
+docker-compose up -d
 ```
 
-The script will:
-1. Search for NDI sources on the network
-2. Connect to the first available source
-3. Begin real-time detection and tracking
-4. Log detected objects to `vehicle_tracking.log`
-5. Save screenshots to `screenshots/` folder for right-to-left movement
+### 3. Run the Application
 
-Press `q` to quit.
+```bash
+uv run python main.py
+```
 
-## Configuration
+The application will:
+1. Auto-detect display capability (GUI vs headless mode)
+2. Search for NDI sources on the network
+3. Connect to the first available source
+4. Begin real-time detection and tracking
+5. Log detections to `vehicle_tracking.log`
+6. Save screenshots to `screenshots/` folder
+7. (If configured) Store metrics in InfluxDB
 
-Edit these constants in [ndi-to-yolo.py](ndi-to-yolo.py) to customize:
+**Controls:**
+- Press `q` to quit (GUI mode)
+- Press `Ctrl+C` to stop (headless mode)
 
-- `ROAD_WIDTH_FEET` (line 22): Approximate width of road in frame for speed calculation (default: 27.5 ft)
-- `VEHICLE_CLASSES` (line 34): Object classes to track (default: person, bicycle, car, motorcycle, bus, truck)
-- `LOG_FILE` (line 26): Path to log file
-- `SCREENSHOTS_DIR` (line 27): Path to screenshots directory
+## Headless Mode (WSL/SSH)
+
+The application automatically detects when running without a display (e.g., WSL, SSH) and switches to headless mode. All detections are still logged to file and InfluxDB, but no visual window is shown.
+
+To force headless mode:
+```python
+from eyeball import ObjectDetector
+detector = ObjectDetector(headless=True)
+detector.run()
+```
 
 ## Output
 
@@ -80,12 +73,60 @@ Edit these constants in [ndi-to-yolo.py](ndi-to-yolo.py) to customize:
 ### Screenshots
 Screenshots are automatically saved for objects moving right-to-left in the `screenshots/` directory with annotated bounding boxes and labels.
 
+## Configuration
+
+The `ObjectDetector` class accepts the following parameters:
+
+```python
+from eyeball import ObjectDetector
+
+detector = ObjectDetector(
+    model_path='yolo11m.pt',          # YOLO model weights
+    confidence=0.4,                    # Detection threshold
+    road_width_feet=32,                # Road width for speed calc
+    log_file='vehicle_tracking.log',  # Log file path
+    screenshots_dir='screenshots',     # Screenshot directory
+    enable_influx=True,                # Enable InfluxDB logging
+    headless=False                     # Force headless mode
+)
+```
+
+### InfluxDB Configuration
+
+Create a `.env` file:
+```bash
+INFLUXDB_URL=http://localhost:8086
+INFLUXDB_TOKEN=eyeball-super-secret-token-change-in-production
+INFLUXDB_ORG=eyeball
+INFLUXDB_BUCKET=detections
+```
+
+**Access InfluxDB UI:**
+- URL: http://localhost:8086
+- Username: `admin`
+- Password: `eyeball-admin-password`
+
 ## Model
 
-The script uses **YOLO11m** (medium) model which provides a good balance between speed and accuracy. The model will be automatically downloaded on first run.
+The application uses **YOLO11m** (medium) model which provides a good balance between speed and accuracy. The model will be automatically downloaded on first run (~40MB).
+
+## Project Structure
+
+```
+eyeball/
+├── eyeball/              # Main package
+│   ├── __init__.py      # Package exports
+│   ├── detector.py      # ObjectDetector class
+│   └── influx_client.py # DetectionLogger for InfluxDB
+├── main.py              # Application entry point
+├── docker-compose.yml   # InfluxDB service
+├── .env.example         # Environment variables template
+└── pyproject.toml       # Project dependencies
+```
 
 ## Requirements
 
 - Python 3.12+
 - NDI-compatible video source on the network
 - GPU recommended for real-time performance (CUDA or MPS)
+- Docker (optional, for InfluxDB)
