@@ -61,8 +61,7 @@ def main():
     bottom_start = inference_size[1] - pixels_to_mask_at_bottom
     roi_mask[bottom_start:, :] = 0
 
-    print(f"Masking top {pixels_to_mask_at_top} pixels (= 200px at 1080p)")
-    print(f"Masking bottom {pixels_to_mask_at_bottom} pixels (= 50px at 1080p)")
+    # ROI mask configured: top 200px and bottom 50px at 1080p
 
     # Additional areas can be masked if needed (in inference coordinates):
     # roi_mask[200:400, 0:200] = 0      # Custom area

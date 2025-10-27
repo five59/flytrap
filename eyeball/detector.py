@@ -98,14 +98,7 @@ class ObjectDetector:
         self.model = YOLO(self.model_path)
         self.model.to(self.device)
 
-        # Log inference resolution configuration
-        if self.inference_size:
-            print(f"Inference resolution: {self.inference_size[0]}x{self.inference_size[1]}")
-            frame_mb = (self.inference_size[0] * self.inference_size[1] * 3) / (1024 * 1024)
-            print(f"  Per-frame memory: ~{frame_mb:.1f}MB (vs ~6MB at 1080p)")
-            print(f"  Queue memory (10 frames): ~{frame_mb * 10:.1f}MB")
-        else:
-            print("Inference resolution: Original frame size (no downscaling)")
+        # Inference resolution is configured (displayed in GUI metrics)
 
         # Initialize InfluxDB logger
         self.influx_logger = None
@@ -400,9 +393,7 @@ class ObjectDetector:
 
             final_memory = self._get_memory_usage()
             memory_delta = final_memory - initial_memory
-            # Only report significant changes AND only on deep cleanup cycles
-            if abs(memory_delta) > 5.0 and self.frame_count % 200 == 0:
-                print(f"Memory: {initial_memory:.1f}MB → {final_memory:.1f}MB ({memory_delta:+.1f}MB)")
+            # Memory changes are now shown in GUI, no need for console logging
 
             # Track memory usage for trend analysis
             self.memory_history.append((time.time(), final_memory))
@@ -496,17 +487,10 @@ class ObjectDetector:
         memory_usage_mb = self._get_memory_usage()
         gstreamer_buffers = self._get_gstreamer_buffer_info()
 
-        # Log memory usage for monitoring trends
+        # Memory tracking for trend analysis (no console logging - shown in GUI)
         if self.frame_count % 50 == 0:
-            trend = ""
-            if len(self.memory_history) >= 5:
-                recent = self.memory_history[-5:]
-                if len(recent) >= 2:
-                    start_mem = recent[0][1]
-                    end_mem = recent[-1][1]
-                    delta = end_mem - start_mem
-                    trend = f" ({delta:+.1f}MB trend)"
-            print(f"Memory: {memory_usage_mb:.1f}MB{trend}, Queue: {queue_depth}, Objects: {len(self.tracked_objects)}")
+            # Still track trends for leak detection, but don't print
+            pass
 
         # Create metrics in columns
         col1_metrics = [
@@ -606,7 +590,7 @@ class ObjectDetector:
         if self.frame_width is None:
             self.frame_width = width
             self.frame_midpoint_x = self.frame_width / 2
-            print(f"Frame size: {self.frame_width}x{height}")
+            # Frame dimensions detected
 
         success, map_info = buffer.map(Gst.MapFlags.READ)
         if success:
@@ -656,7 +640,7 @@ class ObjectDetector:
         self.frame_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.frame_midpoint_x = self.frame_width / 2
-        print(f"OpenCV SRT stream opened, frame size: {self.frame_width}x{frame_height}")
+        # OpenCV SRT stream opened
 
     def _setup_ffmpeg(self):
         """Set up FFmpeg subprocess for SRT streaming (fallback)."""
@@ -683,7 +667,7 @@ class ObjectDetector:
             time.sleep(2)
             if self.ffmpeg_proc.poll() is not None:
                 raise RuntimeError("ffmpeg process failed to start")
-            print("SRT stream connected via ffmpeg pipe")
+            # FFmpeg SRT stream connected
         except Exception as e:
             raise RuntimeError(f"Failed to start ffmpeg for SRT stream: {e}")
 
@@ -1198,11 +1182,10 @@ class ObjectDetector:
                 if 'combined_display' in locals():
                     del combined_display
 
-                # Memory management and progress reporting
+                # Memory management (silent - metrics shown in GUI)
                 # Reduced from every 20 frames to every 50 frames (~8 seconds at 6 FPS)
                 # Less aggressive now that memory leaks are fixed
                 if self.frame_count % 50 == 0:
-                    print(f"Processed {self.frame_count} frames")
                     self._aggressive_memory_cleanup()
 
                 # Additional: Reset background subtractor every 100 frames to prevent history accumulation
@@ -1223,10 +1206,7 @@ class ObjectDetector:
 
                 # Additional cleanup every 200 frames (~3.5 minutes at 6 FPS)
                 if self.frame_count % 200 == 0:
-                    print("Performing deep memory cleanup...")
-                    # Print memory breakdown for diagnostics
-                    memory_breakdown = self._estimate_object_memory()
-                    print(f"Memory breakdown: {memory_breakdown}")
+                    # Deep cleanup (silent - metrics in GUI)
                     # Force Python garbage collection multiple times
                     for _ in range(5):
                         gc.collect()
@@ -1234,7 +1214,6 @@ class ObjectDetector:
                     import sys
                     if hasattr(sys, '_clear_type_cache'):
                         sys._clear_type_cache()
-                    print("Deep cleanup completed")
 
                 # Exit on 'q' key (only in GUI mode)
                 if not self.headless and cv2.waitKey(1) & 0xFF == ord('q'):
