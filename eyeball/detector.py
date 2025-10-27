@@ -819,6 +819,18 @@ class ObjectDetector:
                 # Get center point of bounding box (in inference resolution)
                 x1, y1, x2, y2 = box
 
+                # Filter out detections in masked ROI areas
+                if self.roi_mask is not None:
+                    # Check if detection center is in masked area (black = 0 = ignore)
+                    center_x_inf = int((x1 + x2) / 2)
+                    center_y_inf = int((y1 + y2) / 2)
+                    # Ensure coordinates are within bounds
+                    if (0 <= center_y_inf < self.roi_mask.shape[0] and
+                        0 <= center_x_inf < self.roi_mask.shape[1]):
+                        # If center is in masked area (black/0), skip this detection
+                        if self.roi_mask[center_y_inf, center_x_inf] == 0:
+                            continue
+
                 # Scale coordinates back to original frame resolution
                 x1_orig = x1 * scale_x
                 y1_orig = y1 * scale_y
@@ -901,6 +913,18 @@ class ObjectDetector:
 
         # Add metric overlay to the frame
         annotated_frame = self._add_metric_overlay(annotated_frame, inference_time_ms, motion_pixels)
+
+        # Visually black out the masked ROI area on display
+        if self.roi_mask is not None:
+            # Scale mask to original frame size if needed
+            if self.inference_size is not None:
+                display_mask = cv2.resize(self.roi_mask, (original_width, original_height),
+                                        interpolation=cv2.NEAREST)
+            else:
+                display_mask = self.roi_mask
+
+            # Black out ignored areas (where mask is 0)
+            annotated_frame[display_mask == 0] = 0
 
         # Explicitly delete large objects to help garbage collector
         # This is critical when processing frames at high rates
