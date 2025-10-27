@@ -87,24 +87,75 @@
           "x": 12,
           "y": 16
         }
-      },
-      {
-        "id": 6,
-        "title": "Motion Detection",
-        "type": "graph",
-        "targets": [
-          {
-            "query": "from(bucket: \"detections\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"frame\") |> filter(fn: (r) => r._field == \"motion_pixels\")",
-            "refId": "A"
-          }
-        ],
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 0,
-          "y": 24
-        }
-      }
+       },
+       {
+         "id": 6,
+         "title": "Motion Detection",
+         "type": "graph",
+         "targets": [
+           {
+             "query": "from(bucket: \"detections\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"frame\") |> filter(fn: (r) => r._field == \"motion_pixels\")",
+             "refId": "A"
+           }
+         ],
+         "gridPos": {
+           "h": 8,
+           "w": 12,
+           "x": 0,
+           "y": 24
+         }
+       },
+       {
+         "id": 7,
+         "title": "Frame Queue Depth",
+         "type": "graph",
+         "targets": [
+           {
+             "query": "from(bucket: \"detections\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"frame\") |> filter(fn: (r) => r._field == \"queue_depth\")",
+             "refId": "A"
+           }
+         ],
+         "gridPos": {
+           "h": 8,
+           "w": 12,
+           "x": 12,
+           "y": 24
+         }
+       },
+       {
+         "id": 8,
+         "title": "Memory Usage (MB)",
+         "type": "graph",
+         "targets": [
+           {
+             "query": "from(bucket: \"detections\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"frame\") |> filter(fn: (r) => r._field == \"memory_usage_mb\")",
+             "refId": "A"
+           }
+         ],
+         "gridPos": {
+           "h": 8,
+           "w": 12,
+           "x": 0,
+           "y": 32
+         }
+       },
+       {
+         "id": 9,
+         "title": "GStreamer Buffers",
+         "type": "graph",
+         "targets": [
+           {
+             "query": "from(bucket: \"detections\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"frame\") |> filter(fn: (r) => r._field == \"gstreamer_buffers\")",
+             "refId": "A"
+           }
+         ],
+         "gridPos": {
+           "h": 8,
+           "w": 12,
+           "x": 12,
+           "y": 32
+         }
+       }
     ],
     "time": {
       "from": "now-1h",

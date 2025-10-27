@@ -51,7 +51,11 @@ class DetectionLogger:
         source_name: str = "default",
         frame_number: int = 0,
         processing_time_ms: Optional[float] = None,
-        motion_pixels: Optional[int] = None
+        motion_pixels: Optional[int] = None,
+        queue_depth: Optional[int] = None,
+        gstreamer_buffers: Optional[int] = None,
+        detection_backlog: Optional[int] = None,
+        memory_usage_mb: Optional[float] = None
     ) -> None:
         """
         Log detected objects to InfluxDB.
@@ -61,6 +65,11 @@ class DetectionLogger:
             source_name: Name of the video source (e.g., NDI source name)
             frame_number: Frame number from the video stream
             processing_time_ms: Time taken to process the frame in milliseconds
+            motion_pixels: Number of motion pixels detected
+            queue_depth: Current frame queue depth (for detecting processing backlog)
+            gstreamer_buffers: Number of buffers in GStreamer pipeline
+            detection_backlog: Number of frames waiting for detection processing
+            memory_usage_mb: Current memory usage in MB
         """
         timestamp = datetime.utcnow()
 
@@ -78,6 +87,18 @@ class DetectionLogger:
 
         if motion_pixels is not None:
             frame_point.field("motion_pixels", motion_pixels)
+
+        if queue_depth is not None:
+            frame_point.field("queue_depth", queue_depth)
+
+        if gstreamer_buffers is not None:
+            frame_point.field("gstreamer_buffers", gstreamer_buffers)
+
+        if detection_backlog is not None:
+            frame_point.field("detection_backlog", detection_backlog)
+
+        if memory_usage_mb is not None:
+            frame_point.field("memory_usage_mb", memory_usage_mb)
 
         points = [frame_point]
 
