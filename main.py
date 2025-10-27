@@ -6,6 +6,7 @@ Main entry point for the application.
 
 import os
 import platform
+import numpy as np
 from eyeball import ObjectDetector
 
 
@@ -42,10 +43,21 @@ def main():
     # Options: (1280, 720), (960, 540), (640, 360), or None for original size
     inference_size = (1280, 720)
 
+    # Create ROI mask to ignore specific areas
+    # Mask out top 280 pixels to ignore sky/buildings/stationary objects
+    roi_mask = np.ones((inference_size[1], inference_size[0]), dtype=np.uint8) * 255
+    # Black out top 280 pixels (ignore this area for motion detection)
+    roi_mask[0:280, :] = 0
+
+    # Additional areas can be masked if needed:
+    # roi_mask[550:720, 0:300] = 0      # Bottom-left corner (parked car)
+    # roi_mask[550:720, 980:1280] = 0   # Bottom-right corner
+
     detector = ObjectDetector(
         srt_uri=srt_uri,
         headless=headless,
-        inference_size=inference_size
+        inference_size=inference_size,
+        roi_mask=roi_mask
     )
     detector.run()
 

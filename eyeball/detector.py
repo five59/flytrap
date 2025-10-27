@@ -54,7 +54,8 @@ class ObjectDetector:
         screenshots_dir: str = 'screenshots',
         enable_influx: bool = True,
         headless: bool = False,
-        inference_size: tuple = (1280, 720)
+        inference_size: tuple = (1280, 720),
+        roi_mask: Optional[np.ndarray] = None
     ):
         """
         Initialize the object detector.
@@ -74,6 +75,10 @@ class ObjectDetector:
                            - (960, 540): Aggressive, 75% less memory
                            - (640, 360): Maximum speed, 88% less memory
                            Set to None to use original frame size
+            roi_mask: Region of interest mask (numpy array, same size as inference_size).
+                     White (255) = detect, Black (0) = ignore.
+                     Use to exclude parked cars, buildings, etc.
+                     Set to None to process entire frame
         """
         self.srt_uri = srt_uri
         self.model_path = model_path
@@ -83,6 +88,7 @@ class ObjectDetector:
         self.screenshots_dir = screenshots_dir
         self.headless = headless
         self.inference_size = inference_size
+        self.roi_mask = roi_mask
 
         # Create screenshots directory
         os.makedirs(self.screenshots_dir, exist_ok=True)
@@ -125,7 +131,9 @@ class ObjectDetector:
 
         # Motion detection
         self.back_sub = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=50, detectShadows=True)
-        self.motion_threshold = 500  # Minimum pixels for motion detection
+        # Increased from 500 to 2000 pixels to reduce false positives from stream jitter
+        # At 1280x720 (921,600 pixels), 2000 pixels = 0.22% of frame
+        self.motion_threshold = 2000  # Minimum pixels for motion detection
 
         # Tracking state
         self.tracked_objects: Dict = {}
@@ -699,6 +707,17 @@ class ObjectDetector:
 
         # Motion detection using background subtraction (on inference-sized frame)
         fg_mask = self.back_sub.apply(inference_frame)
+
+        # Apply morphological operations to remove noise from compression artifacts
+        # This helps eliminate false positives from video jitter in parked cars
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel)  # Remove noise
+        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel)  # Fill gaps
+
+        # Apply ROI mask if provided (exclude areas like parked cars)
+        if self.roi_mask is not None:
+            fg_mask = cv2.bitwise_and(fg_mask, fg_mask, mask=self.roi_mask)
+
         motion_pixels = cv2.countNonZero(fg_mask)
         has_motion = motion_pixels > self.motion_threshold
 
@@ -706,7 +725,16 @@ class ObjectDetector:
         gray = cv2.cvtColor(inference_frame, cv2.COLOR_BGR2GRAY)
         if self.prev_frame is not None:
             frame_diff = cv2.absdiff(gray, self.prev_frame)
-            _, thresh = cv2.threshold(frame_diff, 25, 255, cv2.THRESH_BINARY)
+            # Increased threshold from 25 to 40 to reduce sensitivity to compression artifacts
+            _, thresh = cv2.threshold(frame_diff, 40, 255, cv2.THRESH_BINARY)
+
+            # Apply morphological operations to frame diff as well
+            thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+
+            # Apply ROI mask to frame differencing as well
+            if self.roi_mask is not None:
+                thresh = cv2.bitwise_and(thresh, thresh, mask=self.roi_mask)
+
             motion_diff = cv2.countNonZero(thresh)
             has_motion = has_motion or (motion_diff > self.motion_threshold)
         self.prev_frame = gray
