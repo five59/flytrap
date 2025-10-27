@@ -45,19 +45,27 @@ def main():
 
     # Create ROI mask to ignore specific areas
     # IMPORTANT: Mask coordinates are in INFERENCE resolution (1280x720)
-    # To mask top 280 pixels of ORIGINAL 1080p frame, we need to scale:
-    # 280 pixels at 1080p → (280 / 1080) * 720 = 187 pixels at 720p
+    # To mask top 200 pixels and bottom 50 pixels of ORIGINAL 1080p frame, we need to scale:
+    # 200 pixels at 1080p → (200 / 1080) * 720 = 133 pixels at 720p
+    # 50 pixels at 1080p → (50 / 1080) * 720 = 33 pixels at 720p
     roi_mask = np.ones((inference_size[1], inference_size[0]), dtype=np.uint8) * 255
 
-    # Mask out top 280 pixels of original 1920x1080 frame
-    # This equals ~187 pixels in the 1280x720 inference frame
-    pixels_to_mask_at_inference = int((280 / 1080) * inference_size[1])
-    roi_mask[0:pixels_to_mask_at_inference, :] = 0
-    print(f"Masking top {pixels_to_mask_at_inference} pixels at inference resolution (= 280px at 1080p)")
+    # Calculate pixels to mask in inference resolution
+    pixels_to_mask_at_top = int((200 / 1080) * inference_size[1])
+    pixels_to_mask_at_bottom = int((50 / 1080) * inference_size[1])
+
+    # Mask out top 200 pixels of original 1920x1080 frame
+    roi_mask[0:pixels_to_mask_at_top, :] = 0
+
+    # Mask out bottom 50 pixels of original 1920x1080 frame
+    bottom_start = inference_size[1] - pixels_to_mask_at_bottom
+    roi_mask[bottom_start:, :] = 0
+
+    print(f"Masking top {pixels_to_mask_at_top} pixels (= 200px at 1080p)")
+    print(f"Masking bottom {pixels_to_mask_at_bottom} pixels (= 50px at 1080p)")
 
     # Additional areas can be masked if needed (in inference coordinates):
-    # roi_mask[550:720, 0:300] = 0      # Bottom-left corner (parked car)
-    # roi_mask[550:720, 980:1280] = 0   # Bottom-right corner
+    # roi_mask[200:400, 0:200] = 0      # Custom area
 
     detector = ObjectDetector(
         srt_uri=srt_uri,
