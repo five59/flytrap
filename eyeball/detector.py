@@ -919,7 +919,7 @@ class ObjectDetector:
             # Scale mask to original frame size if needed
             if self.inference_size is not None:
                 display_mask = cv2.resize(self.roi_mask, (original_width, original_height),
-                                        interpolation=cv2.NEAREST)
+                                        interpolation=cv2.INTER_NEAREST)
             else:
                 display_mask = self.roi_mask
 
