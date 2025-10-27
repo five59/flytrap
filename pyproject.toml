@@ -1,0 +1,31 @@
+[project]
+name = "eyeball"
+version = "0.1.0"
+description = "Real-time object detection and tracking using YOLO11 with NDI video streams"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "cyndilib>=0.0.9",
+    "jupyterlab>=4.4.10",
+    "lap>=0.5.12",
+    "numpy>=2.3.4",
+    "opencv-python>=4.11.0.86",
+    "tqdm>=4.67.1",
+    "ultralytics>=8.3.221",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.1.0",
+    "jupyterlab>=4.4.10",
+]
+
+# Platform-specific PyTorch dependencies
+# For Mac M4 (Apple Silicon with MPS):
+#   uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#
+# For Windows/Linux with NVIDIA CUDA 12.1:
+#   uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+#
+# For Windows/Linux with NVIDIA CUDA 11.8:
+#   uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118

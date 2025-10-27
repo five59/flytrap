@@ -1,0 +1,22 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# YOLO model weights
+*.pt
+
+# Generated data and logs
+vehicle_tracking.log
+screenshots/
+
+# Jupyter
+.ipynb_checkpoints/
+.virtual_documents/
+Untitled.ipynb
