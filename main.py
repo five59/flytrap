@@ -6,7 +6,6 @@ Main entry point for the application.
 
 import os
 import platform
-import numpy as np
 from eyeball import ObjectDetector
 
 
@@ -51,31 +50,10 @@ def main():
     else:
         srt_uri += '&timeout=5000000'
 
-    # Configure inference resolution for memory optimization
-    # Default: 1280x720 (55% less memory than 1080p, good detection quality)
-    # Options: (1280, 720), (960, 540), (640, 360), or None for original size
-    inference_size = (1280, 720)
-
-    # Create ROI mask to define the area to crop to (white = include, black = exclude)
-    # IMPORTANT: Mask coordinates are in INFERENCE resolution (1280x720)
-    # The frame will be cropped to the bounding box of the white areas and resized to 640px height
-    # To exclude top 200 pixels and bottom 50 pixels of ORIGINAL 1080p frame, we need to scale:
-    # 200 pixels at 1080p → (200 / 1080) * 720 = 133 pixels at 720p
-    # 50 pixels at 1080p → (50 / 1080) * 720 = 33 pixels at 720p
-    roi_mask = np.ones((inference_size[1], inference_size[0]), dtype=np.uint8) * 255
-
-    # Calculate pixels to mask in inference resolution
-    pixels_to_mask_at_top = int((200 / 1080) * inference_size[1])
-    pixels_to_mask_at_bottom = int((50 / 1080) * inference_size[1])
-
-    # Mask out top 200 pixels of original 1920x1080 frame
-    roi_mask[0:pixels_to_mask_at_top, :] = 0
-
-    # Mask out bottom 50 pixels of original 1920x1080 frame
-    bottom_start = inference_size[1] - pixels_to_mask_at_bottom
-    roi_mask[bottom_start:, :] = 0
-
-    # ROI mask configured: top 200px and bottom 50px at 1080p
+    # Define ROI bounding box in original 1920x1080 frame coordinates
+    # Exclude top 200px and bottom 50px to focus on road area
+    # [x1, y1, x2, y2] = [left, top, right, bottom]
+    roi_box = (0, 200, 1920, 1030)  # Full width, exclude top/bottom
 
     # Additional areas can be masked if needed (in inference coordinates):
     # roi_mask[200:400, 0:200] = 0      # Custom area
@@ -83,8 +61,7 @@ def main():
     detector = ObjectDetector(
         srt_uri=srt_uri,
         headless=headless,
-        inference_size=inference_size,
-        roi_mask=roi_mask,
+        roi_box=roi_box,
         detection_fps=detection_fps
     )
     detector.run()

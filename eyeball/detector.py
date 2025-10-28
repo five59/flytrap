@@ -15,7 +15,7 @@ import subprocess
 import gc
 from datetime import datetime
 from collections import defaultdict
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Tuple
 from ultralytics import YOLO
 from eyeball.influx_client import DetectionLogger
 
@@ -54,8 +54,8 @@ class ObjectDetector:
         screenshots_dir: str = 'screenshots',
         enable_influx: bool = True,
         headless: bool = False,
-        inference_size: tuple = (1280, 720),
-        roi_mask: Optional[np.ndarray] = None,
+        inference_size: Optional[tuple] = None,  # Will be set to 640px height after ROI processing
+        roi_box: Optional[Tuple[int, int, int, int]] = None,
         detection_fps: float = 6.0
     ):
         """
@@ -70,16 +70,11 @@ class ObjectDetector:
             screenshots_dir: Directory to save screenshots
             enable_influx: Whether to enable InfluxDB logging
             headless: Run without GUI display (for WSL/headless servers)
-            inference_size: Resolution for YOLO inference (width, height).
-                           Smaller = faster & less memory. Recommended:
-                           - (1280, 720): Good balance, 55% less memory
-                           - (960, 540): Aggressive, 75% less memory
-                           - (640, 360): Maximum speed, 88% less memory
-                           Set to None to use original frame size
-            roi_mask: Region of interest mask (numpy array, same size as inference_size).
-                     White (255) = detect, Black (0) = ignore.
-                     Use to exclude parked cars, buildings, etc.
-                     Set to None to process entire frame
+            inference_size: Optional[tuple] = None,
+                           Automatically set to 640px height after ROI processing.
+                           The actual inference resolution is determined by ROI cropping and resizing
+            roi_box: Region of interest bounding box [x1, y1, x2, y2] in original frame coordinates.
+                     Crop to this box before resizing. Set to None to process entire frame
             detection_fps: Target detection frame rate (FPS). Assumes ~30 FPS input stream.
                            Lower values reduce CPU usage but may miss fast-moving objects.
         """
@@ -91,7 +86,7 @@ class ObjectDetector:
         self.screenshots_dir = screenshots_dir
         self.headless = headless
         self.inference_size = inference_size
-        self.roi_mask = roi_mask
+        self.roi_box = roi_box
         self.detection_fps = detection_fps
         self.frame_skip_interval = max(1, int(30 / detection_fps))  # Assuming ~30 FPS input stream
 
@@ -693,44 +688,32 @@ class ObjectDetector:
         # Store original frame dimensions for scaling detections back
         original_height, original_width = frame_bgr.shape[:2]
 
-        # Downscale frame for inference if inference_size is specified
-        if self.inference_size is not None:
-            inference_frame = cv2.resize(frame_bgr, self.inference_size, interpolation=cv2.INTER_LINEAR)
-            scale_x = original_width / self.inference_size[0]
-            scale_y = original_height / self.inference_size[1]
-        else:
-            inference_frame = frame_bgr
-            scale_x = 1.0
-            scale_y = 1.0
+        # Crop to ROI box if provided (in original frame coordinates)
+        if self.roi_box is not None:
+            x1, y1, x2, y2 = self.roi_box
+            # Ensure coordinates are within bounds
+            x1, x2 = max(0, x1), min(original_width, x2)
+            y1, y2 = max(0, y1), min(original_height, y2)
+            frame_bgr = frame_bgr[y1:y2, x1:x2]
+            # Update original dimensions after cropping
+            original_height, original_width = frame_bgr.shape[:2]
 
-        # Crop to ROI if mask is provided (only when inference_size is set)
-        if self.roi_mask is not None and self.inference_size is not None:
-            # Find bounding box of non-masked area (where mask > 0)
-            non_zero_coords = cv2.findNonZero(self.roi_mask)
-            if non_zero_coords is not None:
-                x, y, w, h = cv2.boundingRect(non_zero_coords)
-                # Crop the inference frame to the ROI bounding box
-                inference_frame = inference_frame[y:y+h, x:x+w]
-                # Update scale factors to account for cropping
-                crop_scale_x = self.inference_size[0] / w
-                crop_scale_y = self.inference_size[1] / h
-                scale_x *= crop_scale_x
-                scale_y *= crop_scale_y
-                # Update roi_mask to match cropped frame
-                self.roi_mask = self.roi_mask[y:y+h, x:x+w]
-
-        # Resize to 640px height maintaining aspect ratio
+        # Resize to 640px height maintaining aspect ratio (this becomes inference_size)
         target_height = 640
-        current_height, current_width = inference_frame.shape[:2]
+        current_height, current_width = frame_bgr.shape[:2]
         if current_height != target_height:
             aspect_ratio = current_width / current_height
             target_width = int(target_height * aspect_ratio)
-            inference_frame = cv2.resize(inference_frame, (target_width, target_height), interpolation=cv2.INTER_LINEAR)
-            # Update scale factors for final resize
-            resize_scale_x = current_width / target_width
-            resize_scale_y = current_height / target_height
-            scale_x *= resize_scale_x
-            scale_y *= resize_scale_y
+            inference_frame = cv2.resize(frame_bgr, (target_width, target_height), interpolation=cv2.INTER_LINEAR)
+            # Set inference_size to the actual resized dimensions
+            self.inference_size = (target_width, target_height)
+        else:
+            inference_frame = frame_bgr
+            self.inference_size = (current_width, current_height)
+
+        # Calculate scale factors from inference_size back to original cropped frame
+        scale_x = original_width / self.inference_size[0]
+        scale_y = original_height / self.inference_size[1]
 
         # Motion detection using background subtraction (on inference-sized frame)
         fg_mask = self.back_sub.apply(inference_frame)
@@ -741,9 +724,7 @@ class ObjectDetector:
         fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel)  # Remove noise
         fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel)  # Fill gaps
 
-        # Apply ROI mask if provided (exclude areas like parked cars)
-        if self.roi_mask is not None:
-            fg_mask = cv2.bitwise_and(fg_mask, fg_mask, mask=self.roi_mask)
+        # Frame is already cropped to ROI, no additional masking needed
 
         motion_pixels = cv2.countNonZero(fg_mask)
         has_motion = motion_pixels > self.motion_threshold
@@ -758,9 +739,7 @@ class ObjectDetector:
             # Apply morphological operations to frame diff as well
             thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
 
-            # Apply ROI mask to frame differencing as well
-            if self.roi_mask is not None:
-                thresh = cv2.bitwise_and(thresh, thresh, mask=self.roi_mask)
+            # Frame is already cropped to ROI, no additional masking needed
 
             motion_diff = cv2.countNonZero(thresh)
             has_motion = has_motion or (motion_diff > self.motion_threshold)
@@ -822,10 +801,7 @@ class ObjectDetector:
         # Annotate frame with detections
         annotated_frame = results[0].plot()
 
-        # Scale annotated frame back to original size for display (unless cropped to ROI)
-        if self.inference_size is not None and self.roi_mask is None:
-            annotated_frame = cv2.resize(annotated_frame, (original_width, original_height),
-                                        interpolation=cv2.INTER_LINEAR)
+        # Annotated frame is already at inference_size (640px height), no scaling back needed
 
         # Prepare InfluxDB detections list
         influx_detections = []
@@ -846,17 +822,7 @@ class ObjectDetector:
                 # Get center point of bounding box (in inference resolution)
                 x1, y1, x2, y2 = box
 
-                # Filter out detections in masked ROI areas
-                if self.roi_mask is not None:
-                    # Check if detection center is in masked area (black = 0 = ignore)
-                    center_x_inf = int((x1 + x2) / 2)
-                    center_y_inf = int((y1 + y2) / 2)
-                    # Ensure coordinates are within bounds
-                    if (0 <= center_y_inf < self.roi_mask.shape[0] and
-                        0 <= center_x_inf < self.roi_mask.shape[1]):
-                        # If center is in masked area (black/0), skip this detection
-                        if self.roi_mask[center_y_inf, center_x_inf] == 0:
-                            continue
+                # Frame is already cropped to ROI, all detections are valid
 
                 # Scale coordinates back to original frame resolution
                 x1_orig = x1 * scale_x
