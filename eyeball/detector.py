@@ -83,7 +83,7 @@ class ObjectDetector:
 
         # Initialize components
         self.frame_queue = queue.Queue(maxsize=FRAME_QUEUE_MAX_SIZE)
-        self.stream_handler = StreamHandler(srt_uri, self.frame_queue)
+        self.stream_handler = StreamHandler(srt_uri, self.frame_queue, self.frame_skip_interval)
         self.frame_processor = FrameProcessor(model_path, confidence, self.device, roi_box)
         self.object_tracker = ObjectTracker(road_width_feet, log_file, screenshots_dir, self.influx_logger)
         self.gui_dashboard = GUIDashboard()

@@ -25,16 +25,18 @@ except Exception as e:
 class StreamHandler:
     """Handles SRT stream connection and frame acquisition."""
 
-    def __init__(self, srt_uri: str, frame_queue: queue.Queue):
+    def __init__(self, srt_uri: str, frame_queue: queue.Queue, frame_skip_interval: int = 1):
         self.logger = logging.getLogger(__name__)
         self.srt_uri = srt_uri
         self.frame_queue = frame_queue
+        self.frame_skip_interval = frame_skip_interval
         self.use_gstreamer = GSTREAMER_AVAILABLE
         self.use_opencv = not self.use_gstreamer
 
         # GStreamer components
         self.pipeline = None
         self.gstreamer_thread = None
+        self.frame_skip_counter = 0
 
         # OpenCV components
         self.cap = None
@@ -102,6 +104,15 @@ class StreamHandler:
 
     def _on_new_sample(self, sink):
         """Callback for new video sample from GStreamer."""
+        self.frame_skip_counter += 1
+
+        # Skip frames to achieve target detection FPS
+        if self.frame_skip_counter % self.frame_skip_interval != 0:
+            # Still need to pull sample to clear pipeline buffer
+            sample = sink.emit('pull-sample')
+            del sample
+            return Gst.FlowReturn.OK
+
         sample = sink.emit('pull-sample')
         buffer = sample.get_buffer()
         caps = sample.get_caps()
