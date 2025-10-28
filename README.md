@@ -9,6 +9,59 @@ Real-time object detection and tracking using YOLO11 with SRT (Secure Reliable T
 - SRT video stream source
 - GPU recommended (CUDA/MPS/CPU fallback)
 
+### System Dependencies (Ubuntu/Debian)
+
+Install required system packages for GStreamer, SRT streaming, and GUI support:
+
+```bash
+# Update package list
+sudo apt update
+
+# GStreamer core and plugins (for SRT streaming)
+sudo apt install -y gstreamer1.0-tools gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-ugly gstreamer1.0-libav
+
+# SRT protocol support
+sudo apt install -y libsrt-openssl-dev gstreamer1.0-plugins-bad
+
+# GTK and GObject introspection (for PyGObject GUI support)
+sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 \
+    gir1.2-gstreamer-1.0
+
+# Qt6 development packages (alternative GUI support)
+sudo apt install -y qt6-base-dev python3-pyqt6
+
+# OpenCV development packages
+sudo apt install -y python3-opencv libopencv-dev
+
+# Additional development tools
+sudo apt install -y build-essential pkg-config
+```
+
+**Note**: Some packages may require additional repositories. For Ubuntu 22.04+, the `gstreamer1.0-plugins-bad` package includes SRT support. If SRT plugins are not available in your distribution's repositories, you may need to build GStreamer from source or use a PPA.
+
+### Verify Installation
+
+After installing system dependencies, verify everything works:
+
+```bash
+# Test GStreamer SRT support
+gst-inspect-1.0 srtsrc
+
+# Test GTK/GObject introspection
+python3 -c "import gi; gi.require_version('Gtk', '3.0'); from gi.repository import Gtk; print('GTK available')"
+
+# Test OpenCV
+python3 -c "import cv2; print(f'OpenCV version: {cv2.__version__}')"
+
+# Test PyTorch installation
+uv run python -c "import torch; print(f'PyTorch available: {torch.cuda.is_available()}')"
+
+# Test full application import
+uv run python -c "from eyeball import ObjectDetector; print('Eyeball import successful')"
+```
+
 ### 1. Install Dependencies
 ```bash
 # Install Python dependencies
@@ -175,6 +228,10 @@ eyeball/
 - **High memory usage**: System implements automatic cleanup every 20 frames
 - **Slow performance**: Reduce detection_fps or check GPU utilization
 - **GStreamer errors**: Falls back to OpenCV, then FFmpeg automatically
+- **Import errors with PyGObject/GStreamer**: Install system packages (see System Dependencies above)
+- **GUI not working**: Ensure GTK/Qt6 development packages are installed
+- **SRT streaming not available**: Install `gstreamer1.0-plugins-bad` and SRT libraries
+- **OpenCV errors**: Install `python3-opencv` and `libopencv-dev`
 
 ### Performance Tuning
 - Adjust `detection_fps` (default 6.0) based on hardware
