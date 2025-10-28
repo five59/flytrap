@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Real-time object detection and tracking using YOLO11 with NDI video streams"
 readme = "README.md"
 requires-python = ">=3.12"
+sonar.python.version = "3.12"
 dependencies = [
     "ffmpeg-python>=0.2.0",
     "influxdb-client>=1.49.0",
