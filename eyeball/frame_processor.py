@@ -2,17 +2,25 @@
 Frame processing module for motion detection and YOLO inference.
 """
 
+import logging
 import cv2
 import time
 import numpy as np
 from typing import Optional, Tuple, List, Dict
 from ultralytics import YOLO
+from eyeball.config import (
+    MOTION_THRESHOLD_PIXELS,
+    MOTION_PIXEL_PERCENTAGE_MULTIPLIER,
+    BACKGROUND_SUBTRACTOR_HISTORY,
+    BACKGROUND_SUBTRACTOR_VAR_THRESHOLD
+)
 
 
 class FrameProcessor:
     """Handles frame preprocessing, motion detection, and YOLO inference."""
 
     def __init__(self, model_path: str, confidence: float, device: str, roi_box: Optional[Tuple[int, int, int, int]]):
+        self.logger = logging.getLogger(__name__)
         self.model_path = model_path
         self.confidence = confidence
         self.device = device
@@ -23,8 +31,12 @@ class FrameProcessor:
         self.model.to(self.device)
 
         # Motion detection
-        self.back_sub = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=50, detectShadows=True)
-        self.motion_threshold = 2000  # Minimum pixels for motion detection
+        self.back_sub = cv2.createBackgroundSubtractorMOG2(
+            history=BACKGROUND_SUBTRACTOR_HISTORY,
+            varThreshold=BACKGROUND_SUBTRACTOR_VAR_THRESHOLD,
+            detectShadows=True
+        )
+        self.motion_threshold = MOTION_THRESHOLD_PIXELS
 
         # Frame state
         self.prev_frame = None
@@ -79,7 +91,7 @@ class FrameProcessor:
 
         motion_pixels_raw = cv2.countNonZero(fg_mask)
         total_pixels = inference_frame.shape[0] * inference_frame.shape[1]
-        motion_pixels = (motion_pixels_raw / total_pixels) * 100 if total_pixels > 0 else 0
+        motion_pixels = (motion_pixels_raw / total_pixels) * MOTION_PIXEL_PERCENTAGE_MULTIPLIER if total_pixels > 0 else 0
         has_motion = motion_pixels_raw > self.motion_threshold
 
         # Frame differencing

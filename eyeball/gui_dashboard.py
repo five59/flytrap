@@ -2,37 +2,46 @@
 GUI dashboard creation module.
 """
 
+import logging
 import cv2
 import numpy as np
 from typing import List
+from eyeball.config import (
+    DASHBOARD_WIDTH,
+    DASHBOARD_HEIGHT,
+    VIDEO_FRAME_HEIGHT,
+    METRICS_COLUMN_WIDTH,
+    VIDEO_COLUMN_WIDTH
+)
 
 
 class GUIDashboard:
     """Handles creation of the GUI dashboard display."""
 
     def __init__(self):
+        self.logger = logging.getLogger(__name__)
         self.font = cv2.FONT_HERSHEY_SIMPLEX
 
     def create_dashboard(self, processing_time_ms: float, motion_pixels: float,
-                        fg_mask: np.ndarray, annotated_frame: np.ndarray,
-                        queue_depth: int, queue_max: int, memory_usage_mb: float,
-                        frame_count: int, tracked_objects_count: int,
-                        device_type: str, inference_device: str,
-                        influx_log_lines: List[str]) -> np.ndarray:
+                         fg_mask: np.ndarray, annotated_frame: np.ndarray,
+                         queue_depth: int, queue_max: int, memory_usage_mb: float,
+                         frame_count: int, tracked_objects_count: int,
+                         device_type: str, inference_device: str,
+                         influx_log_lines: List[str]) -> np.ndarray:
         """Create a 2-column dashboard layout with video frames and metrics."""
 
         # Dashboard dimensions
-        dashboard_width = 1600
-        dashboard_height = 900
-        left_column_width = 1066  # 2/3 width for video frames
-        right_column_width = 534  # 1/3 width for metrics
+        dashboard_width = DASHBOARD_WIDTH
+        dashboard_height = DASHBOARD_HEIGHT
+        left_column_width = VIDEO_COLUMN_WIDTH  # 2/3 width for video frames
+        right_column_width = METRICS_COLUMN_WIDTH  # 1/3 width for metrics
 
         # Create dashboard canvas
         dashboard = np.zeros((dashboard_height, dashboard_width, 3), dtype=np.uint8)
         dashboard[:] = (30, 30, 30)  # Dark background
 
         # Left column: Video frames (stacked vertically)
-        video_frame_height = 450  # Half the height for each frame
+        video_frame_height = VIDEO_FRAME_HEIGHT  # Half the height for each frame
 
         # Resize annotated frame to fit
         if annotated_frame.shape[1] != left_column_width:

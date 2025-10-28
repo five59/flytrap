@@ -2,17 +2,24 @@
 Memory monitoring and cleanup module.
 """
 
+import logging
 import time
 import gc
 import torch
 import sys
 from typing import Dict, Any
+from eyeball.config import (
+    MEMORY_LEAK_THRESHOLD_MB,
+    MEMORY_LEAK_SLOPE_THRESHOLD_MB_PER_MIN,
+    MEMORY_HISTORY_SIZE
+)
 
 
 class MemoryManager:
     """Handles memory monitoring and cleanup operations."""
 
     def __init__(self):
+        self.logger = logging.getLogger(__name__)
         self.memory_history = []
         self.last_memory_cleanup = time.time()
 
@@ -68,7 +75,7 @@ class MemoryManager:
             # Track memory usage
             final_memory = self.get_memory_usage()
             self.memory_history.append((time.time(), final_memory))
-            if len(self.memory_history) > 20:
+            if len(self.memory_history) > MEMORY_HISTORY_SIZE:
                 self.memory_history.pop(0)
 
             # Check for memory leak trend
@@ -90,8 +97,8 @@ class MemoryManager:
         slope = memory_span / time_span if time_span > 0 else 0
 
         current_memory = self.memory_history[-1][1] if self.memory_history else 0
-        if current_memory > 2000 and slope > (20.0 / 60.0):
-            print(f"⚠️  Memory leak detected! Trend: +{slope*60:.2f}MB/min")
+        if current_memory > MEMORY_LEAK_THRESHOLD_MB and slope > (MEMORY_LEAK_SLOPE_THRESHOLD_MB_PER_MIN / 60.0):
+            self.logger.warning(f"Memory leak detected! Trend: +{slope*60:.2f}MB/min")
             self.emergency_memory_cleanup()
 
     def emergency_memory_cleanup(self):

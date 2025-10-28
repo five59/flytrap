@@ -2,6 +2,7 @@
 Stream handling module for SRT video streams.
 """
 
+import logging
 import cv2
 import time
 import queue
@@ -9,6 +10,7 @@ import threading
 import select
 import subprocess
 import numpy as np
+from eyeball.config import SRT_CONNECTION_TIMEOUT_MS
 
 # GStreamer imports
 try:
@@ -24,6 +26,7 @@ class StreamHandler:
     """Handles SRT stream connection and frame acquisition."""
 
     def __init__(self, srt_uri: str, frame_queue: queue.Queue):
+        self.logger = logging.getLogger(__name__)
         self.srt_uri = srt_uri
         self.frame_queue = frame_queue
         self.use_gstreamer = GSTREAMER_AVAILABLE
@@ -50,7 +53,7 @@ class StreamHandler:
                 self._setup_gstreamer()
                 return True
             except Exception as e:
-                print(f"GStreamer SRT setup failed: {e}, falling back to OpenCV")
+                self.logger.warning(f"GStreamer SRT setup failed: {e}, falling back to OpenCV")
                 self.use_gstreamer = False
 
         if self.use_opencv:

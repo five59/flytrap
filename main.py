@@ -44,11 +44,13 @@ def main():
     print("  python main.py srt://192.168.1.100:4201 6.0")
     print("  python main.py srt://192.168.1.100:4201 12.0")
 
-    # Add SRT connection timeout (5 seconds) to prevent hanging
+    # Add SRT connection timeout to prevent hanging
+    from eyeball.config import SRT_CONNECTION_TIMEOUT_MS
+    timeout_param = f'timeout={SRT_CONNECTION_TIMEOUT_MS}'
     if '?' not in srt_uri:
-        srt_uri += '?timeout=5000000'
+        srt_uri += f'?{timeout_param}'
     else:
-        srt_uri += '&timeout=5000000'
+        srt_uri += f'&{timeout_param}'
 
     # Define ROI bounding box in original 1920x1080 frame coordinates
     # Exclude top 200px and bottom 50px to focus on road area

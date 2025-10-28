@@ -3,12 +3,21 @@ Real-time object detection module for SRT video streams using YOLO.
 Main orchestrator class that coordinates stream handling, processing, tracking, and display.
 """
 
+import logging
 import cv2
 import time
 import os
 import queue
 import numpy as np
 from typing import Optional, Tuple
+from eyeball.config import (
+    DEFAULT_DETECTION_FPS,
+    FRAME_SKIP_INTERVAL_BASE,
+    FRAME_QUEUE_MAX_SIZE,
+    MEMORY_HIGH_USAGE_THRESHOLD_MB,
+    MEMORY_CLEANUP_INTERVAL_FRAMES,
+    MEMORY_DEEP_CLEANUP_INTERVAL_FRAMES
+)
 from eyeball.stream_handler import StreamHandler
 from eyeball.frame_processor import FrameProcessor
 from eyeball.object_tracker import ObjectTracker
@@ -31,7 +40,7 @@ class ObjectDetector:
         enable_influx: bool = True,
         headless: bool = False,
         roi_box: Optional[Tuple[int, int, int, int]] = None,
-        detection_fps: float = 6.0
+        detection_fps: float = DEFAULT_DETECTION_FPS
     ):
         """
         Initialize the object detector.
@@ -50,10 +59,11 @@ class ObjectDetector:
             detection_fps: Target detection frame rate (FPS). Assumes ~30 FPS input stream.
                             Lower values reduce CPU usage but may miss fast-moving objects.
         """
+        self.logger = logging.getLogger(__name__)
         self.srt_uri = srt_uri
         self.headless = headless
         self.detection_fps = detection_fps
-        self.frame_skip_interval = max(1, int(30 / detection_fps))
+        self.frame_skip_interval = max(1, int(FRAME_SKIP_INTERVAL_BASE / detection_fps))
 
         # Create screenshots directory
         os.makedirs(screenshots_dir, exist_ok=True)
@@ -66,13 +76,13 @@ class ObjectDetector:
         if enable_influx:
             try:
                 self.influx_logger = DetectionLogger()
-                print("✓ InfluxDB logging enabled")
+                self.logger.info("InfluxDB logging enabled")
             except Exception as e:
-                print(f"⚠ InfluxDB logging disabled: {e}")
-                print("  (Continuing without time-series logging)")
+                self.logger.warning(f"InfluxDB logging disabled: {e}")
+                self.logger.info("Continuing without time-series logging")
 
         # Initialize components
-        self.frame_queue = queue.Queue(maxsize=24)
+        self.frame_queue = queue.Queue(maxsize=FRAME_QUEUE_MAX_SIZE)
         self.stream_handler = StreamHandler(srt_uri, self.frame_queue)
         self.frame_processor = FrameProcessor(model_path, confidence, self.device, roi_box)
         self.object_tracker = ObjectTracker(road_width_feet, log_file, screenshots_dir, self.influx_logger)
@@ -196,17 +206,17 @@ class ObjectDetector:
                 del frame_bgr
 
                 # Memory management
-                if self.frame_count % 50 == 0:
+                if self.frame_count % MEMORY_CLEANUP_INTERVAL_FRAMES == 0:
                     self.memory_manager.aggressive_memory_cleanup(self.frame_count)
 
                 # Check memory usage and trigger emergency cleanup if needed
                 current_memory = self.memory_manager.get_memory_usage()
-                if current_memory > 2000:  # Updated threshold
-                    print(f"⚠️  High memory usage detected: {current_memory:.1f}MB")
+                if current_memory > MEMORY_HIGH_USAGE_THRESHOLD_MB:
+                    self.logger.warning(f"High memory usage detected: {current_memory:.1f}MB")
                     self.memory_manager.emergency_memory_cleanup()
 
-                # Additional cleanup every 200 frames
-                if self.frame_count % 200 == 0:
+                # Additional cleanup every N frames
+                if self.frame_count % MEMORY_DEEP_CLEANUP_INTERVAL_FRAMES == 0:
                     self.memory_manager.deep_cleanup()
 
                 # Exit on 'q' key (only in GUI mode)

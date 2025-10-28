@@ -2,11 +2,22 @@
 Object tracking and logging module.
 """
 
+import logging
 import cv2
 import time
 import os
 from datetime import datetime
 from typing import Dict, Optional, Tuple
+from eyeball.config import (
+    TRACKING_POSITION_HISTORY_SIZE,
+    TRACKING_CLEANUP_TIME_SECONDS,
+    TRACKING_MAX_POSITIONS,
+    TRACKING_MIN_POSITIONS_FOR_LOGGING,
+    TRACKING_MIDPOINT_DISPLACEMENT_THRESHOLD,
+    INFLUX_LOG_MAX_ENTRIES,
+    FEET_PER_MILE,
+    SECONDS_PER_HOUR
+)
 
 
 class ObjectTracker:
@@ -23,6 +34,7 @@ class ObjectTracker:
     }
 
     def __init__(self, road_width_feet: float, log_file: str, screenshots_dir: str, influx_logger=None):
+        self.logger = logging.getLogger(__name__)
         self.road_width_feet = road_width_feet
         self.log_file = log_file
         self.screenshots_dir = screenshots_dir
@@ -68,8 +80,8 @@ class ObjectTracker:
                 self.tracked_objects[track_id]['class'] = cls
                 self.tracked_objects[track_id]['positions'].append((center_x, center_y, current_time))
 
-                # Keep only last 30 positions
-                if len(self.tracked_objects[track_id]['positions']) > 30:
+                # Keep only last N positions
+                if len(self.tracked_objects[track_id]['positions']) > TRACKING_POSITION_HISTORY_SIZE:
                     self.tracked_objects[track_id]['positions'].pop(0)
 
                 # Check if object has crossed the midpoint
@@ -88,7 +100,7 @@ class ObjectTracker:
     def _log_tracked_object(self, track_id: int, cls: int) -> Optional[str]:
         """Log a tracked object that has crossed the midpoint."""
         positions = self.tracked_objects[track_id]['positions']
-        if len(positions) < 10:
+        if len(positions) < TRACKING_MIN_POSITIONS_FOR_LOGGING:
             return None
 
         start_x, start_y, start_time = positions[0]
@@ -96,7 +108,7 @@ class ObjectTracker:
         displacement_pixels = end_x - start_x
         time_elapsed = end_time - start_time
 
-        if abs(displacement_pixels) <= 50 or time_elapsed <= 0:
+        if abs(displacement_pixels) <= TRACKING_MIDPOINT_DISPLACEMENT_THRESHOLD or time_elapsed <= 0:
             return None
 
         direction = "left-to-right" if displacement_pixels > 0 else "right-to-left"
@@ -105,7 +117,7 @@ class ObjectTracker:
         pixels_per_foot = self.frame_width / self.road_width_feet
         distance_feet = abs(displacement_pixels) / pixels_per_foot
         speed_fps = distance_feet / time_elapsed
-        speed_mph = speed_fps * 3600 / 5280
+        speed_mph = speed_fps * SECONDS_PER_HOUR / FEET_PER_MILE
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
         vehicle_type = self.CLASS_NAMES.get(cls, "object")
@@ -126,7 +138,7 @@ class ObjectTracker:
         # Add to GUI log
         log_timestamp = datetime.now().strftime("%H:%M:%S")
         self.influx_log_lines.insert(0, f"{log_timestamp}: Detected {vehicle_type}. Motion: {direction}")
-        if len(self.influx_log_lines) > 150:
+        if len(self.influx_log_lines) > INFLUX_LOG_MAX_ENTRIES:
             self.influx_log_lines.pop()
 
         print(f"Logged: {vehicle_type} {direction} at {speed_mph:.1f} mph - {timestamp}")
@@ -154,9 +166,9 @@ class ObjectTracker:
         """Remove tracks that haven't been updated recently."""
         to_remove = []
         for track_id, data in self.tracked_objects.items():
-            if data['positions'] and current_time - data['positions'][-1][2] > 15:
+            if data['positions'] and current_time - data['positions'][-1][2] > TRACKING_CLEANUP_TIME_SECONDS:
                 to_remove.append(track_id)
-            elif len(data['positions']) > 20:
+            elif len(data['positions']) > TRACKING_MAX_POSITIONS:
                 data['positions'] = data['positions'][-10:]
 
         for track_id in to_remove:
