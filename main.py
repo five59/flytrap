@@ -30,7 +30,20 @@ def main():
         # Default SRT URI
         srt_uri = "srt://192.168.1.195:4201"
         print(f"Using default SRT URI: {srt_uri}")
-        print("Pass your SRT URI as command line argument: python main.py srt://your-ip:port")
+
+    # Get detection FPS from command line or use default
+    detection_fps = 6.0
+    if len(sys.argv) > 2:
+        try:
+            detection_fps = float(sys.argv[2])
+            print(f"Using detection FPS: {detection_fps}")
+        except ValueError:
+            print(f"Invalid detection FPS: {sys.argv[2]}, using default {detection_fps}")
+
+    print("Usage: python main.py [srt://your-ip:port] [detection_fps]")
+    print("Examples:")
+    print("  python main.py srt://192.168.1.100:4201 6.0")
+    print("  python main.py srt://192.168.1.100:4201 12.0")
 
     # Add SRT connection timeout (5 seconds) to prevent hanging
     if '?' not in srt_uri:
@@ -70,7 +83,8 @@ def main():
         srt_uri=srt_uri,
         headless=headless,
         inference_size=inference_size,
-        roi_mask=roi_mask
+        roi_mask=roi_mask,
+        detection_fps=detection_fps
     )
     detector.run()
 

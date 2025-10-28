@@ -55,7 +55,8 @@ class ObjectDetector:
         enable_influx: bool = True,
         headless: bool = False,
         inference_size: tuple = (1280, 720),
-        roi_mask: Optional[np.ndarray] = None
+        roi_mask: Optional[np.ndarray] = None,
+        detection_fps: float = 6.0
     ):
         """
         Initialize the object detector.
@@ -79,6 +80,8 @@ class ObjectDetector:
                      White (255) = detect, Black (0) = ignore.
                      Use to exclude parked cars, buildings, etc.
                      Set to None to process entire frame
+            detection_fps: Target detection frame rate (FPS). Assumes ~30 FPS input stream.
+                           Lower values reduce CPU usage but may miss fast-moving objects.
         """
         self.srt_uri = srt_uri
         self.model_path = model_path
@@ -89,6 +92,8 @@ class ObjectDetector:
         self.headless = headless
         self.inference_size = inference_size
         self.roi_mask = roi_mask
+        self.detection_fps = detection_fps
+        self.frame_skip_interval = max(1, int(30 / detection_fps))  # Assuming ~30 FPS input stream
 
         # Create screenshots directory
         os.makedirs(self.screenshots_dir, exist_ok=True)
@@ -573,8 +578,8 @@ class ObjectDetector:
     def _on_new_sample(self, sink):
         """Callback for new video sample from GStreamer."""
         self.frame_skip_counter += 1
-        # Process every 5th frame to reduce FPS from ~30 to ~6
-        if self.frame_skip_counter % 5 != 0:
+        # Process every Nth frame to achieve target detection FPS
+        if self.frame_skip_counter % self.frame_skip_interval != 0:
             # Still need to pull sample to clear pipeline buffer
             sample = sink.emit('pull-sample')
             del sample
@@ -1098,6 +1103,11 @@ class ObjectDetector:
                         print("Failed to read frame from OpenCV SRT stream")
                         time.sleep(1)
                         continue
+
+                    # Skip frames to achieve target detection FPS
+                    self.frame_skip_counter += 1
+                    if self.frame_skip_counter % self.frame_skip_interval != 0:
+                        continue
                 else:
                     # Handle ffmpeg process
                     if self.ffmpeg_proc.poll() is not None:
@@ -1127,6 +1137,11 @@ class ObjectDetector:
 
                     # Convert bytes to numpy array and reshape
                     frame_bgr = np.frombuffer(frame_data, dtype=np.uint8).reshape((frame_height, frame_width, 3))
+
+                    # Skip frames to achieve target detection FPS
+                    self.frame_skip_counter += 1
+                    if self.frame_skip_counter % self.frame_skip_interval != 0:
+                        continue
 
                 # Process frame with YOLO
                 annotated_frame = self._process_frame(frame_bgr)
