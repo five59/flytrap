@@ -1,15 +1,15 @@
-# AGENTS.md - Development Guidelines for Eyeball
+# AGENTS.md - Development Guidelines for Flytrap
 
 ## Build/Lint/Test Commands
 - **Install dependencies**: `uv sync`
 - **Install dev dependencies**: `uv sync --group dev`
-- **Run linting**: `uv run ruff check eyeball/`
-- **Run type checking**: `uv run python -m mypy eyeball/ --ignore-missing-imports`
+- **Run linting**: `uv run ruff check flytrap/`
+- **Run type checking**: `uv run python -m mypy flytrap/ --ignore-missing-imports`
 - **Run tests**: `uv run python -m pytest tests/`
-- **Run tests with coverage**: `uv run python -m pytest --cov=eyeball --cov-report=xml --cov-report=term tests/`
+- **Run tests with coverage**: `uv run python -m pytest --cov=flytrap --cov-report=xml --cov-report=term tests/`
 - **Run application**: `uv run python main.py`
 - **Run with custom SRT URI**: `uv run python main.py srt://your-ip:port`
-- **Test InfluxDB connection**: `uv run python -m eyeball.influx_client`
+- **Test InfluxDB connection**: `uv run python -m flytrap.influx_client`
 - **Start InfluxDB**: `docker-compose up -d`
 - **Stop InfluxDB**: `docker-compose down`
 

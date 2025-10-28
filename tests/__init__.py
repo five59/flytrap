@@ -1,1 +1,1 @@
-"""Test package for eyeball."""
+"""Test package for flytrap."""

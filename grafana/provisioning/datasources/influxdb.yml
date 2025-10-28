@@ -7,8 +7,8 @@ datasources:
     url: http://influxdb:8086
     jsonData:
       version: Flux
-      organization: eyeball
+      organization: flytrap
       defaultBucket: detections
       tlsSkipVerify: true
     secureJsonData:
-      token: eyeball-super-secret-token-change-in-production
+      token: flytrap-super-secret-token-change-in-production

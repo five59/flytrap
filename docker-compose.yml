@@ -1,7 +1,7 @@
 services:
   influxdb:
     image: influxdb:2.7
-    container_name: eyeball-influxdb
+    container_name: flytrap-influxdb
     ports:
       - "8086:8086"
     volumes:
@@ -10,11 +10,11 @@ services:
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=eyeball-admin-password
-      - DOCKER_INFLUXDB_INIT_ORG=eyeball
+      - DOCKER_INFLUXDB_INIT_PASSWORD=flytrap-admin-password
+      - DOCKER_INFLUXDB_INIT_ORG=flytrap
       - DOCKER_INFLUXDB_INIT_BUCKET=detections
       - DOCKER_INFLUXDB_INIT_RETENTION=7d
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=eyeball-super-secret-token-change-in-production
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=flytrap-super-secret-token-change-in-production
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "influx", "ping"]
@@ -24,7 +24,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: eyeball-grafana
+    container_name: flytrap-grafana
     ports:
       - "3000:3000"
     volumes:

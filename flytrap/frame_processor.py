@@ -8,7 +8,7 @@ import time
 import numpy as np
 from typing import Optional, Tuple, List, Dict
 from ultralytics import YOLO
-from eyeball.config import (
+from flytrap.config import (
     MOTION_THRESHOLD_PIXELS,
     MOTION_PIXEL_PERCENTAGE_MULTIPLIER,
     BACKGROUND_SUBTRACTOR_HISTORY,

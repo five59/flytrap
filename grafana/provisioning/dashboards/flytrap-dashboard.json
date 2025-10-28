@@ -1,6 +1,6 @@
 {
-  "title": "Eyeball Object Detection",
-  "tags": ["eyeball", "object-detection"],
+  "title": "Flytrap Object Detection",
+  "tags": ["flytrap", "object-detection"],
   "timezone": "browser",
   "panels": [
     {

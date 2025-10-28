@@ -1,4 +1,4 @@
-# Eyeball - Real-time Object Detection with SRT Streams
+# Flytrap - Real-time Object Detection with SRT Streams
 
 Real-time object detection and tracking using YOLO11 with SRT (Secure Reliable Transport) video streams. Tracks vehicles, people, and bicycles with direction detection, speed calculation, and automatic screenshot capture. Includes comprehensive time-series metrics storage with InfluxDB and Grafana visualization.
 
@@ -8,6 +8,8 @@ Real-time object detection and tracking using YOLO11 with SRT (Secure Reliable T
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=five59_eyeball&metric=sqale_rating&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_eyeball)
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=five59_eyeball&metric=vulnerabilities&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_eyeball)
 [![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=five59_eyeball&metric=code_smells&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_eyeball)
+
+![Screenshot](screenshot.jpg)
 
 ## 🚀 Quick Start
 
@@ -66,7 +68,7 @@ python3 -c "import cv2; print(f'OpenCV version: {cv2.__version__}')"
 uv run python -c "import torch; print(f'PyTorch available: {torch.cuda.is_available()}')"
 
 # Test full application import
-uv run python -c "from eyeball import ObjectDetector; print('Eyeball import successful')"
+uv run python -c "from flytrap import ObjectDetector; print('Flytrap import successful')"
 ```
 
 ### 1. Install Dependencies
@@ -88,7 +90,7 @@ cp .env.example .env
 docker-compose up -d
 
 # Verify InfluxDB connection
-uv run python -m eyeball.influx_client
+uv run python -m flytrap.influx_client
 ```
 
 ### 3. Run the Application
@@ -140,7 +142,7 @@ The system uses a sophisticated pipeline:
 
 ### Access Points
 - **Grafana Dashboard**: http://localhost:3000 (admin/admin)
-- **InfluxDB UI**: http://localhost:8086 (admin/eyeball-admin-password)
+- **InfluxDB UI**: http://localhost:8086 (admin/flytrap-admin-password)
 
 ### Metrics Collected
 - **Frame metrics**: Detection count, processing time, memory usage, queue depth
@@ -152,8 +154,8 @@ The system uses a sophisticated pipeline:
 ### Environment Variables (.env)
 ```bash
 INFLUXDB_URL=http://localhost:8086
-INFLUXDB_TOKEN=eyeball-super-secret-token-change-in-production
-INFLUXDB_ORG=eyeball
+INFLUXDB_TOKEN=flytrap-super-secret-token-change-in-production
+INFLUXDB_ORG=flytrap
 INFLUXDB_BUCKET=detections
 ```
 
@@ -170,7 +172,7 @@ uv run python main.py srt://10.0.0.1:4201 12.0 # Custom stream at 12 FPS
 
 ### ObjectDetector Parameters
 ```python
-from eyeball import ObjectDetector
+from flytrap import ObjectDetector
 
 detector = ObjectDetector(
     srt_uri="srt://192.168.1.195:4201",  # SRT stream URI
@@ -200,8 +202,8 @@ Automatically captured for right-to-left movement in `screenshots/` with annotat
 
 ### Project Structure
 ```
-eyeball/
-├── eyeball/                    # Main package
+flytrap/
+├── flytrap/                    # Main package
 │   ├── __init__.py            # Package exports
 │   ├── config.py              # Configuration constants
 │   ├── detector.py            # Main ObjectDetector class

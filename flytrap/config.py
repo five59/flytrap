@@ -1,5 +1,5 @@
 """
-Configuration constants for the Eyeball application.
+Configuration constants for the Flytrap application.
 """
 
 # Detection settings
@@ -31,7 +31,7 @@ TRACKING_MIDPOINT_DISPLACEMENT_THRESHOLD = 50
 FRAME_QUEUE_MAX_SIZE = 24
 
 # GUI settings
-WINDOW_NAME = "Traffic Detector"
+WINDOW_NAME = "Flytrap: A CV Traffic Watcher"
 DASHBOARD_WIDTH = 1600
 DASHBOARD_HEIGHT = 900
 VIDEO_FRAME_HEIGHT = 450

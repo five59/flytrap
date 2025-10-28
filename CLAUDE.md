@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Eyeball is a Python-based real-time object detection system that integrates SRT (Secure Reliable Transport) video streaming with YOLO11 computer vision. The system receives live video feeds via SRT protocol, performs real-time object detection with tracking, calculates speed and direction of moving objects, automatically captures screenshots, and logs comprehensive metrics to InfluxDB for visualization in Grafana.
+Flytrap is a Python-based real-time object detection system that integrates SRT (Secure Reliable Transport) video streaming with YOLO11 computer vision. The system receives live video feeds via SRT protocol, performs real-time object detection with tracking, calculates speed and direction of moving objects, automatically captures screenshots, and logs comprehensive metrics to InfluxDB for visualization in Grafana.
 
 ## Development Environment
 
@@ -36,7 +36,7 @@ uv run python main.py
 uv run python main.py srt://your-host:port
 
 # Test InfluxDB connection
-uv run python -m eyeball.influx_client
+uv run python -m flytrap.influx_client
 
 # Start JupyterLab for experimentation
 uv run jupyter lab
@@ -66,7 +66,7 @@ Frame processing flow: SRT stream → Frame queue (GStreamer) or direct capture 
 
 ### Core Components
 
-#### ObjectDetector ([eyeball/detector.py](eyeball/detector.py))
+#### ObjectDetector ([flytrap/detector.py](flytrap/detector.py))
 
 Main class handling the entire detection pipeline:
 
@@ -82,7 +82,7 @@ Main class handling the entire detection pipeline:
 
 Tracked classes (COCO dataset): person (0), bicycle (1), car (2), motorcycle (3), bus (5), truck (7)
 
-#### DetectionLogger ([eyeball/influx_client.py](eyeball/influx_client.py))
+#### DetectionLogger ([flytrap/influx_client.py](flytrap/influx_client.py))
 
 InfluxDB 2.7 client for metrics storage:
 
@@ -127,14 +127,14 @@ InfluxDB 2.7 client for metrics storage:
 
 3. **Verify InfluxDB connection**:
    ```bash
-   uv run python -m eyeball.influx_client
+   uv run python -m flytrap.influx_client
    ```
 
 ### Access
 
 - **InfluxDB UI**: http://localhost:8086
   - Username: `admin`
-  - Password: `eyeball-admin-password`
+   - Password: `flytrap-admin-password`
 
 - **Grafana UI**: http://localhost:3000
   - Username: `admin`
@@ -145,8 +145,8 @@ InfluxDB 2.7 client for metrics storage:
 
 Environment variables (`.env` file):
 - `INFLUXDB_URL`: Server URL (default: `http://localhost:8086`)
-- `INFLUXDB_TOKEN`: Auth token (default: `eyeball-super-secret-token-change-in-production`)
-- `INFLUXDB_ORG`: Organization (default: `eyeball`)
+- `INFLUXDB_TOKEN`: Auth token (default: `flytrap-super-secret-token-change-in-production`)
+- `INFLUXDB_ORG`: Organization (default: `flytrap`)
 - `INFLUXDB_BUCKET`: Bucket name (default: `detections`)
 
 Docker Compose also provisions Grafana with automatic dashboard configuration from `grafana/provisioning/`.
