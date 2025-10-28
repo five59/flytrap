@@ -19,6 +19,9 @@ wheels/
 vehicle_tracking.log
 screenshots/
 
+# Coverage
+.coverage
+
 # Jupyter
 .ipynb_checkpoints/
 .virtual_documents/
