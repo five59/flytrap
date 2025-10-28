@@ -22,10 +22,10 @@ This repository (Flytrap) has been built and is maintained with the assistance o
 
 ### AI Agents
 
-- **GitHub Copilot**
-  - AI-powered code completion and intelligent code suggestions
-  - Assisted with code generation, refactoring, and problem-solving
-  - Helped with GitHub-specific workflows and repository management
+- **GitHub Spec-Kit**
+  - Framework for using LLMs in Spec-Driven Development (SDD)
+  - Assisted with specification-driven development processes
+  - Helped create and maintain development specifications and requirements
 
 - **Anthropic's Claude Code** (claude.ai/code)
   - Used for initial project setup, architecture design, and ongoing code development
@@ -92,7 +92,7 @@ If you have questions about our use of AI tools or the development process, plea
 - [OpenCode](https://opencode.ai)
 - [Grok Code Fast 1 (xAI)](https://x.ai/grok)
 - [Code Supernova](https://kilocode.ai/models/supernova) (No longer available)
-- [GitHub Copilot](https://github.com/features/copilot)
+- [GitHub Spec-Kit](https://github.com/github/spec-kit)
 
 ---
 
