@@ -1,7 +1,8 @@
 ---
-title: "Architecture Overview"
+title: "Architecture"
 description: "System design, data flow, and core components of Flytrap"
 permalink: /architecture.html
+nav_order: 5
 ---
 
 # Architecture Overview

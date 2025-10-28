@@ -1,7 +1,8 @@
 ---
-title: "Monitoring & Visualization"
+title: "Monitoring"
 description: "InfluxDB and Grafana setup for comprehensive metrics collection and visualization"
 permalink: /monitoring.html
+nav_order: 6
 ---
 
 # Monitoring & Visualization

@@ -1,7 +1,8 @@
 ---
-title: "Configuration Guide"
+title: "Configuration"
 description: "Complete configuration options for Flytrap including environment variables and parameters"
 permalink: /configuration.html
+nav_order: 4
 ---
 
 # Configuration Guide

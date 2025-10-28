@@ -1,7 +1,8 @@
 ---
-title: "Usage Guide"
-description: "How to run Flytrap, interpret output, and understand operational modes"
+title: "Usage"
+description: "How to run Flytrap and interpret detection results"
 permalink: /usage.html
+nav_order: 3
 ---
 
 # Usage Guide

@@ -1,7 +1,8 @@
 ---
-title: "Installation Guide"
+title: "Installation"
 description: "Complete setup instructions for Flytrap including system dependencies and configuration"
 permalink: /installation.html
+nav_order: 2
 ---
 
 # Installation Guide

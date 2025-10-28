@@ -1,7 +1,8 @@
 ---
-title: "Development Guide"
+title: "Development"
 description: "Development environment, project structure, testing, and contribution guidelines"
 permalink: /development.html
+nav_order: 9
 ---
 
 # Development Guide

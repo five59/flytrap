@@ -1,7 +1,8 @@
 ---
-title: "Flytrap Documentation"
+title: "Home"
 description: "Real-time object detection and tracking using YOLO11 with SRT streams"
 permalink: /
+nav_order: 1
 ---
 
 # Flytrap Documentation

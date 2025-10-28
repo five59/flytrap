@@ -1,7 +1,8 @@
 ---
-title: "Troubleshooting Guide"
+title: "Troubleshooting"
 description: "Common issues, causes, and solutions for Flytrap deployment and operation"
 permalink: /troubleshooting.html
+nav_order: 8
 ---
 
 # Troubleshooting Guide

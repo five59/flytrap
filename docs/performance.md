@@ -1,7 +1,8 @@
 ---
-title: "Performance Optimization"
+title: "Performance"
 description: "Performance optimization techniques, benchmarking, and tuning strategies"
 permalink: /performance.html
+nav_order: 7
 ---
 
 # Performance Optimization Guide
