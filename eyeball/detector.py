@@ -119,7 +119,7 @@ class ObjectDetector:
         self.pipeline = None
         # Reduced queue size from 50 to 10 to reduce memory footprint
         # At 1920x1080 BGR, each frame is ~6MB, so 10 frames = ~60MB vs 300MB
-        self.frame_queue = queue.Queue(maxsize=10)
+        self.frame_queue = queue.Queue(maxsize=24)
         self.gstreamer_thread = None
 
         # Motion detection
@@ -143,6 +143,7 @@ class ObjectDetector:
         # Display metrics tracking
         self.last_inference_time_ms = 0.0
         self.last_motion_pixels = 0
+        self.last_detections_count = 0
 
     def _get_device(self) -> str:
         """Detect and return the best available device for inference."""
@@ -377,12 +378,7 @@ class ObjectDetector:
                 except Exception as e:
                     print(f"Error clearing YOLO cache: {e}")
 
-            # Reset background subtractor to clear accumulated history
-            if hasattr(self, 'back_sub'):
-                self.back_sub = cv2.createBackgroundSubtractorMOG2(
-                    history=100, varThreshold=50, detectShadows=False
-                )
-                # Removed verbose logging - happens too often
+            # Background subtractor reset moved to emergency cleanup only to prevent flashes
 
             # NOTE: cv2.destroyAllWindows() removed from regular cleanup
             # It was causing window handle leaks by destroying/recreating windows every 20 frames
@@ -428,9 +424,10 @@ class ObjectDetector:
         memory_span = memories[-1] - memories[0]
         slope = memory_span / time_span if time_span > 0 else 0
 
-        # If memory is increasing by more than 5MB per minute, trigger emergency cleanup
-        # Increased from 1MB/min to 5MB/min - less sensitive to normal fluctuations
-        if slope > (5.0 / 60.0):  # 5MB per minute threshold
+        # Only check for memory leaks if memory usage is already high (>2000MB)
+        # This prevents false positives from normal operation at 1600MB
+        current_memory = self.memory_history[-1][1] if self.memory_history else 0
+        if current_memory > 2000 and slope > (20.0 / 60.0):  # 20MB per minute threshold when high
             print(f"⚠️  Memory leak detected! Trend: +{slope*60:.2f}MB/min")
             self._emergency_memory_cleanup()
 
@@ -480,59 +477,129 @@ class ObjectDetector:
             import traceback
             traceback.print_exc()
 
-    def _create_metrics_panel(self, processing_time_ms: float, motion_pixels: int, width: int) -> np.ndarray:
-        """Create a metrics panel to display above the video."""
+    def _create_dashboard(self, processing_time_ms: float, motion_pixels: float, fg_mask: np.ndarray, annotated_frame: np.ndarray) -> np.ndarray:
+        """Create a 2-column dashboard layout with video frames and metrics.
+
+        Left column (1066px, 2/3 width): Video frame (top) + Subtractor frame (bottom), stacked vertically
+        Right column (534px, 1/3 width): Clean dashboard with structured metrics (labels above values, proper alignment)
+        """
+        # Dashboard dimensions
+        dashboard_width = 1600
+        dashboard_height = 900
+        left_column_width = 1066  # 2/3 width for video frames
+        right_column_width = 534  # 1/3 width for metrics
+
+        # Create dashboard canvas
+        dashboard = np.zeros((dashboard_height, dashboard_width, 3), dtype=np.uint8)
+        dashboard[:] = (30, 30, 30)  # Dark background
+
+        # Left column: Video frames (stacked vertically)
+        video_frame_height = 450  # Half the height for each frame
+
+        # Resize annotated frame to fit
+        if annotated_frame.shape[1] != left_column_width:
+            aspect_ratio = annotated_frame.shape[0] / annotated_frame.shape[1]
+            resized_height = int(left_column_width * aspect_ratio)
+            if resized_height > video_frame_height:
+                # Fit to height
+                scale = video_frame_height / annotated_frame.shape[0]
+                new_width = int(annotated_frame.shape[1] * scale)
+                annotated_frame = cv2.resize(annotated_frame, (new_width, video_frame_height))
+                # Center horizontally
+                x_offset = (left_column_width - new_width) // 2
+                dashboard[0:video_frame_height, x_offset:x_offset+new_width] = annotated_frame
+            else:
+                annotated_frame = cv2.resize(annotated_frame, (left_column_width, resized_height))
+                y_offset = (video_frame_height - resized_height) // 2
+                dashboard[y_offset:y_offset+resized_height, 0:left_column_width] = annotated_frame
+
+        # Resize and display fg_mask (subtractor frame)
+        if fg_mask is not None:
+            # Convert binary mask to visible image (white = motion)
+            fg_display = cv2.cvtColor(fg_mask, cv2.COLOR_GRAY2BGR)
+            fg_display[fg_mask > 0] = [0, 255, 0]  # Green for motion
+
+            if fg_display.shape[1] != left_column_width:
+                aspect_ratio = fg_display.shape[0] / fg_display.shape[1]
+                resized_height = int(left_column_width * aspect_ratio)
+                if resized_height > video_frame_height:
+                    scale = video_frame_height / fg_display.shape[0]
+                    new_width = int(fg_display.shape[1] * scale)
+                    fg_display = cv2.resize(fg_display, (new_width, video_frame_height))
+                    x_offset = (left_column_width - new_width) // 2
+                    dashboard[video_frame_height:video_frame_height*2, x_offset:x_offset+new_width] = fg_display
+                else:
+                    fg_display = cv2.resize(fg_display, (left_column_width, resized_height))
+                    y_offset = video_frame_height + (video_frame_height - resized_height) // 2
+                    dashboard[y_offset:y_offset+resized_height, 0:left_column_width] = fg_display
+
+        # Right column: Dashboard metrics
+        metrics_x = left_column_width + 20
+        metrics_y_start = 50
+
         # Get current metrics
         queue_depth = self.frame_queue.qsize() if hasattr(self, 'frame_queue') else 0
+        queue_max = self.frame_queue.maxsize if hasattr(self, 'frame_queue') else 10
         memory_usage_mb = self._get_memory_usage()
-        gstreamer_buffers = self._get_gstreamer_buffer_info()
 
-        # Memory tracking for trend analysis (no console logging - shown in GUI)
-        if self.frame_count % 50 == 0:
-            # Still track trends for leak detection, but don't print
-            pass
+        # Determine device type
+        if self.use_gstreamer:
+            device_type = "GStreamer"
+        elif self.use_opencv:
+            device_type = "OpenCV"
+        else:
+            device_type = "FFmpeg"
 
-        # Create metrics in columns
-        col1_metrics = [
-            f"Frame: {self.frame_count}",
-            f"Queue: {queue_depth}/10",
-            f"Objects: {len(self.tracked_objects)}"
+        # Check if POI (Person of Interest) detected - check if objects detected in current frame
+        poi_detected = self.last_detections_count > 0
+
+        # Dashboard metrics with labels and values
+        metrics = [
+            ("POI Detected", "YES" if poi_detected else "NO", (0, 255, 0) if poi_detected else (0, 0, 255)),
+            ("Processing Time", f"{processing_time_ms:.1f} ms", (255, 255, 255)),
+            ("Frame Count", str(self.frame_count), (255, 255, 255)),
+            ("Objects Detected", str(len(self.tracked_objects)), (255, 255, 255)),
+            ("Motion Detected", f"{motion_pixels:.1f}%", (255, 255, 255)),
+            ("Device", device_type, (255, 255, 255)),
+            ("Inference Device", self.device.upper(), (255, 255, 255)),
+            ("Memory Usage", f"{memory_usage_mb:.1f} MB", (255, 255, 255)),
         ]
-        col2_metrics = [
-            f"Processing: {processing_time_ms:.1f} ms",
-            f"Motion: {motion_pixels:.1f}%",
-            f"GStreamer: {gstreamer_buffers}"
-        ]
-        col3_metrics = [
-            f"Memory: {memory_usage_mb:.1f} MB",
-            f"Device: {self.device}",
-            f"Resolution: {self.inference_size[0]}x{self.inference_size[1]}" if self.inference_size else "Original"
-        ]
 
-        # Panel settings
-        panel_height = 90
-        panel = np.zeros((panel_height, width, 3), dtype=np.uint8)
-        panel[:] = (40, 40, 40)  # Dark gray background
-
+        # Special handling for queue bar graph
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.6
-        color = (0, 255, 0)
-        thickness = 1
-        line_height = 28
+        y_pos = metrics_y_start
 
-        # Calculate column widths
-        col_width = width // 3
+        for label, value, color in metrics:
+            # Draw label (smaller, above)
+            cv2.putText(dashboard, label, (metrics_x, y_pos), font, 0.5, (150, 150, 150), 1, cv2.LINE_AA)
+            y_pos += 25
 
-        # Draw columns with antialiasing for better rendering
-        columns = [col1_metrics, col2_metrics, col3_metrics]
-        for col_idx, col_text in enumerate(columns):
-            x_offset = col_idx * col_width + 15
-            for row_idx, text in enumerate(col_text):
-                y = 28 + row_idx * line_height
-                # Use LINE_AA for antialiased text rendering
-                cv2.putText(panel, text, (x_offset, y), font, font_scale, color, thickness, cv2.LINE_AA)
+            # Draw value (larger, below)
+            cv2.putText(dashboard, value, (metrics_x, y_pos), font, 0.8, color, 2, cv2.LINE_AA)
+            y_pos += 60
 
-        return panel
+        # Draw queue bar graph
+        queue_label_y = y_pos + 20
+        cv2.putText(dashboard, "Queue Depth", (metrics_x, queue_label_y), font, 0.5, (150, 150, 150), 1, cv2.LINE_AA)
+
+        # Bar graph background
+        bar_x = metrics_x
+        bar_y = queue_label_y + 10
+        bar_width = 300
+        bar_height = 30
+
+        # Background bar
+        cv2.rectangle(dashboard, (bar_x, bar_y), (bar_x + bar_width, bar_y + bar_height), (50, 50, 50), -1)
+        # Filled portion (queue depth / max)
+        fill_width = int((queue_depth / queue_max) * bar_width) if queue_max > 0 else 0
+        cv2.rectangle(dashboard, (bar_x, bar_y), (bar_x + fill_width, bar_y + bar_height), (0, 255, 0), -1)
+        # Border
+        cv2.rectangle(dashboard, (bar_x, bar_y), (bar_x + bar_width, bar_y + bar_height), (255, 255, 255), 1)
+
+        # Queue text
+        cv2.putText(dashboard, f"{queue_depth}/{queue_max}", (bar_x + bar_width + 10, bar_y + 20), font, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+
+        return dashboard
 
     def _add_metric_overlay(self, frame: np.ndarray, processing_time_ms: float, motion_pixels: int) -> np.ndarray:
         """Add monitoring metrics overlay to the frame (legacy function for headless mode)."""
@@ -681,9 +748,12 @@ class ObjectDetector:
             frame_bgr: BGR-format frame from OpenCV
 
         Returns:
-            Annotated frame with detections drawn
+            Tuple of (annotated_frame, fg_mask) where fg_mask is the motion detection mask
         """
         self.frame_count += 1
+
+        # Initialize fg_mask (will be set during motion detection)
+        fg_mask = None
 
         # Store original frame dimensions for scaling detections back
         original_height, original_width = frame_bgr.shape[:2]
@@ -768,19 +838,22 @@ class ObjectDetector:
                     )
                 except Exception as e:
                     print(f"Error logging to InfluxDB: {e}")
+            # Store metrics for display panel
+            self.last_detections_count = 0
             # Return frame resized to inference_size for consistent display
             # Even when skipping inference, maintain consistent frame dimensions
+            annotated_frame = frame_bgr
             if self.inference_size is not None:
-                frame_bgr = cv2.resize(frame_bgr, self.inference_size, interpolation=cv2.INTER_LINEAR)
+                annotated_frame = cv2.resize(annotated_frame, self.inference_size, interpolation=cv2.INTER_LINEAR)
 
             # Clean up intermediate objects before returning
-            del fg_mask
+            # Note: Don't delete fg_mask as it's returned
             if 'frame_diff' in locals():
                 del frame_diff
             if 'thresh' in locals():
                 del thresh
 
-            return frame_bgr
+            return annotated_frame, fg_mask
 
         # Run YOLO inference with tracking
         inference_start = time.time()
@@ -788,9 +861,11 @@ class ObjectDetector:
         # Check if model exists (might be None after emergency cleanup)
         if self.model is None:
             print("⚠️  YOLO model not available, skipping detection")
-            # Return original frame with overlay
-            annotated_frame = self._add_metric_overlay(frame_bgr, 0.0, motion_pixels)
-            return annotated_frame
+            # Store metrics for display panel
+            self.last_detections_count = 0
+            # Return original frame (no overlay needed in GUI mode)
+            annotated_frame = frame_bgr
+            return annotated_frame, fg_mask
 
         # Run inference on downscaled frame
         results = self.model.track(
@@ -911,13 +986,15 @@ class ObjectDetector:
         # Store metrics for display panel (before modifying frame)
         self.last_inference_time_ms = inference_time_ms
         self.last_motion_pixels = motion_pixels
+        # Count only persons for POI detection
+        self.last_detections_count = sum(1 for d in influx_detections if d.get('class_name') == 'person')
 
         # Frame is already cropped to ROI if mask was provided, no visual masking needed
 
         # Explicitly delete large objects to help garbage collector
         # This is critical when processing frames at high rates
         del results
-        del fg_mask
+        # del fg_mask  # Removed: fg_mask is returned
         del inference_frame  # Delete the downscaled frame
         if 'frame_diff' in locals():
             del frame_diff
@@ -932,7 +1009,7 @@ class ObjectDetector:
         if 'confidences' in locals():
             del confidences
 
-        return annotated_frame
+        return annotated_frame, fg_mask
 
     def _log_tracked_object(self, track_id: int, cls: int) -> Optional[str]:
         """
@@ -1000,7 +1077,7 @@ class ObjectDetector:
 
         return screenshot_filename
 
-    def run(self, window_name: str = "Eyeball Detection", window_size: tuple = (1280, 800)):
+    def run(self, window_name: str = "Traffic Detector", window_size: tuple = (1600, 900)):
         """
         Start the main detection loop.
 
@@ -1011,9 +1088,9 @@ class ObjectDetector:
         # Create display window only if not in headless mode
         if not self.headless:
             try:
-                # Create window with AUTOSIZE flag for fixed size (no resizing)
-                # Use WINDOW_AUTOSIZE to prevent OpenCV from adding toolbar buttons
-                cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE | cv2.WINDOW_GUI_NORMAL)
+                # Create fixed-size, non-resizable window
+                cv2.namedWindow(window_name, cv2.WINDOW_NORMAL | cv2.WINDOW_GUI_NORMAL)
+                cv2.resizeWindow(window_name, window_size[0], window_size[1])
 
                 # Show initial blank frame
                 blank_frame = np.zeros((window_size[1], window_size[0], 3), dtype=np.uint8)
@@ -1023,7 +1100,7 @@ class ObjectDetector:
                 # Force a waitKey to ensure window is created and displayed
                 cv2.waitKey(1)
                 print(f"✓ Display window created: {window_name} ({window_size[0]}x{window_size[1]})")
-                print("  Fixed size window with metrics panel above video")
+                print("  2-column dashboard: Video frames | Metrics dashboard")
             except Exception as e:
                 print(f"⚠ Could not create display window: {e}")
                 print("  This may be due to missing GUI libraries or running in a headless environment")
@@ -1133,33 +1210,19 @@ class ObjectDetector:
                         continue
 
                 # Process frame with YOLO
-                annotated_frame = self._process_frame(frame_bgr)
+                annotated_frame, fg_mask = self._process_frame(frame_bgr)
 
                 # Display result only if not in headless mode
                 if not self.headless:
-                    # Use annotated frame directly (already cropped to ROI if mask provided)
-                    display_frame = annotated_frame
-
-                    # Create metrics panel above the video
-                    metrics_panel = self._create_metrics_panel(
+                    # Create the 2-column dashboard
+                    dashboard = self._create_dashboard(
                         self.last_inference_time_ms,
                         self.last_motion_pixels,
-                        display_frame.shape[1]
+                        fg_mask,
+                        annotated_frame
                     )
 
-                    # Combine metrics panel and video frame vertically
-                    combined_display = np.vstack([metrics_panel, display_frame])
-
-                    # Resize to fixed window size if needed (prevents scaling artifacts)
-                    # Window size is defined in run() method - default 1280x800
-                    target_width = 1280
-                    target_height = 800
-                    if combined_display.shape[1] != target_width or combined_display.shape[0] != target_height:
-                        # Resize with high quality interpolation
-                        combined_display = cv2.resize(combined_display, (target_width, target_height),
-                                                     interpolation=cv2.INTER_LINEAR)
-
-                    cv2.imshow(window_name, combined_display)
+                    cv2.imshow(window_name, dashboard)
 
                 # Clean up frame references immediately after use
                 del annotated_frame
@@ -1176,13 +1239,7 @@ class ObjectDetector:
                 if self.frame_count % 50 == 0:
                     self._aggressive_memory_cleanup()
 
-                # Additional: Reset background subtractor every 100 frames to prevent history accumulation
-                # This is in addition to the reset in _aggressive_memory_cleanup
-                if self.frame_count % 100 == 0:
-                    self.back_sub = cv2.createBackgroundSubtractorMOG2(
-                        history=100, varThreshold=50, detectShadows=False
-                    )
-                    # Removed verbose logging - already happens in regular cleanup
+                # Background subtractor reset removed to prevent flashes - only reset in emergency cleanup
 
                 # Check memory usage and trigger emergency cleanup if needed
                 current_memory = self._get_memory_usage()
