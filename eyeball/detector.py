@@ -500,7 +500,7 @@ class ObjectDetector:
         ]
         col2_metrics = [
             f"Processing: {processing_time_ms:.1f} ms",
-            f"Motion Pixels: {motion_pixels}",
+            f"Motion: {motion_pixels:.1f}%",
             f"GStreamer: {gstreamer_buffers}"
         ]
         col3_metrics = [
@@ -726,8 +726,10 @@ class ObjectDetector:
 
         # Frame is already cropped to ROI, no additional masking needed
 
-        motion_pixels = cv2.countNonZero(fg_mask)
-        has_motion = motion_pixels > self.motion_threshold
+        motion_pixels_raw = cv2.countNonZero(fg_mask)
+        total_pixels = inference_frame.shape[0] * inference_frame.shape[1]
+        motion_pixels = (motion_pixels_raw / total_pixels) * 100 if total_pixels > 0 else 0
+        has_motion = motion_pixels_raw > self.motion_threshold
 
         # Convert to grayscale for frame differencing (on inference-sized frame)
         gray = cv2.cvtColor(inference_frame, cv2.COLOR_BGR2GRAY)
@@ -759,7 +761,7 @@ class ObjectDetector:
                         source_name=source_name,
                         frame_number=self.frame_count,
                         processing_time_ms=0.0,
-                        motion_pixels=motion_pixels,
+                        motion_pixels=motion_pixels_raw,
                         queue_depth=queue_depth,
                         gstreamer_buffers=gstreamer_buffers,
                         memory_usage_mb=memory_usage_mb
@@ -891,7 +893,7 @@ class ObjectDetector:
                     source_name=source_name,
                     frame_number=self.frame_count,
                     processing_time_ms=inference_time_ms if influx_detections else 0.0,
-                    motion_pixels=motion_pixels,
+                    motion_pixels=motion_pixels_raw,
                     queue_depth=queue_depth,
                     gstreamer_buffers=gstreamer_buffers,
                     memory_usage_mb=memory_usage_mb
