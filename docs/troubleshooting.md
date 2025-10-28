@@ -1,3 +1,10 @@
+---
+layout: default
+title: "Troubleshooting Guide"
+description: "Common issues, causes, and solutions for Flytrap deployment and operation"
+nav_order: 8
+---
+
 # Troubleshooting Guide
 
 This guide covers common issues, their causes, and solutions for Flytrap deployment and operation.

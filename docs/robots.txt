@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://five59.github.io/flytrap/sitemap.xml

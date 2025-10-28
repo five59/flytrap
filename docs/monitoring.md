@@ -1,3 +1,10 @@
+---
+layout: default
+title: "Monitoring & Visualization"
+description: "InfluxDB and Grafana setup for comprehensive metrics collection and visualization"
+nav_order: 6
+---
+
 # Monitoring & Visualization
 
 Flytrap includes comprehensive monitoring capabilities with InfluxDB time-series storage and Grafana dashboards for real-time visualization and alerting. This guide covers setup, configuration, and available metrics.

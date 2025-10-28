@@ -1,3 +1,10 @@
+---
+layout: default
+title: "Architecture Overview"
+description: "System design, data flow, and core components of Flytrap"
+nav_order: 5
+---
+
 # Architecture Overview
 
 Flytrap uses a sophisticated, modular architecture designed for real-time video processing, object detection, and analytics. This document explains the system design, data flow, and core components.

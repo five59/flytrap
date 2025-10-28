@@ -1,3 +1,10 @@
+---
+layout: default
+title: "Configuration Guide"
+description: "Complete configuration options for Flytrap including environment variables and parameters"
+nav_order: 4
+---
+
 # Configuration Guide
 
 Flytrap offers extensive configuration options to adapt to different environments, hardware capabilities, and use cases. This guide covers all configuration methods and parameters.

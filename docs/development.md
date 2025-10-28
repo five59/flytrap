@@ -1,3 +1,10 @@
+---
+layout: default
+title: "Development Guide"
+description: "Development environment, project structure, testing, and contribution guidelines"
+nav_order: 9
+---
+
 # Development Guide
 
 This guide covers Flytrap's development environment, project structure, testing, and contribution guidelines.

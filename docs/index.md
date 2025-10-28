@@ -1,3 +1,10 @@
+---
+layout: default
+title: "Flytrap Documentation"
+description: "Real-time object detection and tracking using YOLO11 with SRT streams"
+permalink: /
+---
+
 # Flytrap Documentation
 
 Real-time object detection and tracking using YOLO11 with SRT (Secure Reliable Transport) video streams. Tracks vehicles, people, and bicycles with direction detection, speed calculation, and automatic screenshot capture. Includes comprehensive time-series metrics storage with InfluxDB and Grafana visualization.
@@ -9,7 +16,16 @@ Real-time object detection and tracking using YOLO11 with SRT (Secure Reliable T
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=five59_flytrap&metric=vulnerabilities&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_flytrap)
 [![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=five59_flytrap&metric=code_smells&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_flytrap)
 
-![Screenshot](../screenshot.jpg)
+![Screenshot]({{ '/assets/images/screenshot.jpg' | relative_url }})
+
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Key Features](#key-features)
+- [Documentation Sections](#documentation-sections)
+- [System Overview](#system-overview)
+- [Monitoring & Visualization](#monitoring--visualization)
+- [Development](#development)
 
 ## 🚀 Quick Start
 

@@ -1,3 +1,10 @@
+---
+layout: default
+title: "Computer Vision Model Selection"
+description: "Why YOLO11m was chosen for Flytrap's object detection needs"
+nav_order: 10
+---
+
 ## Why Choose YOLO11m for Most Computer Vision Tasks?
 
 **YOLO11m** (the "medium" variant) is generally the best starting point for object detection and related vision workloads. It strikes a balance between accuracy, efficiency, and hardware compatibility, making it an ideal default across diverse applications and environments.

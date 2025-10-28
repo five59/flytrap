@@ -1,3 +1,10 @@
+---
+layout: default
+title: "Installation Guide"
+description: "Complete setup instructions for Flytrap including system dependencies and configuration"
+nav_order: 2
+---
+
 # Installation Guide
 
 This guide covers the complete installation and setup process for Flytrap, including system dependencies, Python packages, and optional monitoring components.

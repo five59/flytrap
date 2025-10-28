@@ -1,0 +1,101 @@
+# Jekyll Configuration for Flytrap Documentation
+title: "Flytrap Documentation"
+description: "Real-time object detection and tracking with YOLO11 and SRT streams"
+url: "https://five59.github.io"
+baseurl: "/flytrap"
+repository: "five59/flytrap"
+
+# Site settings
+author: "Flytrap Team"
+email: "flytrap@example.com"
+twitter_username: "flytrap_ai"
+github_username: "five59"
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+incremental: true
+
+# Collections
+collections:
+  docs:
+    output: true
+    permalink: /:name/
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - vendor/
+  - .bundle/
+  - .sass-cache/
+  - .jekyll-cache/
+  - gemfiles/
+
+# Include files
+include:
+  - _pages
+
+# Custom variables
+logo: /assets/images/logo.png
+social_links:
+  github: "https://github.com/five59/flytrap"
+  docs: "https://five59.github.io/flytrap/"
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+theme: minima
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Collections
+collections:
+  docs:
+    output: true
+    permalink: /:name/
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - vendor/
+  - .bundle/
+  - .sass-cache/
+  - .jekyll-cache/
+  - gemfiles/
+
+# Include files
+include:
+  - _pages
+
+# Navigation
+navigation:
+  - title: "Home"
+    url: "/"
+  - title: "Installation"
+    url: "/installation/"
+  - title: "Usage"
+    url: "/usage/"
+  - title: "Configuration"
+    url: "/configuration/"
+  - title: "Architecture"
+    url: "/architecture/"
+  - title: "Monitoring"
+    url: "/monitoring/"
+  - title: "Development"
+    url: "/development/"
+  - title: "Troubleshooting"
+    url: "/troubleshooting/"
+  - title: "Performance"
+    url: "/performance/"

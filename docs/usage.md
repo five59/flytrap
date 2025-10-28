@@ -1,3 +1,10 @@
+---
+layout: default
+title: "Usage Guide"
+description: "How to run Flytrap, interpret output, and understand operational modes"
+nav_order: 3
+---
+
 # Usage Guide
 
 This guide covers how to run Flytrap, interpret its output, and understand the various operational modes and features.

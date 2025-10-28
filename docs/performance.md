@@ -1,3 +1,10 @@
+---
+layout: default
+title: "Performance Optimization"
+description: "Performance optimization techniques, benchmarking, and tuning strategies"
+nav_order: 7
+---
+
 # Performance Optimization Guide
 
 This guide covers performance optimization techniques, benchmarking, and tuning strategies for Flytrap deployments.
