@@ -11,7 +11,7 @@ class TestMemoryManager:
     def test_initialization(self):
         """Test memory manager initialization."""
         manager = MemoryManager()
-        assert manager is not None
+        assert isinstance(manager, MemoryManager)
 
     def test_get_memory_usage(self):
         """Test memory usage retrieval."""
