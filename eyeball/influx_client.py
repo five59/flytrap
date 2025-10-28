@@ -3,7 +3,7 @@ InfluxDB client wrapper for storing object detection metrics.
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from influxdb_client.client.influxdb_client import InfluxDBClient
 from influxdb_client.client.write.point import Point
@@ -23,7 +23,7 @@ class DetectionLogger:
         url: Optional[str] = None,
         token: Optional[str] = None,
         org: Optional[str] = None,
-        bucket: Optional[str] = None
+        bucket: Optional[str] = None,
     ):
         """
         Initialize the InfluxDB client.
@@ -40,7 +40,9 @@ class DetectionLogger:
         self.bucket = bucket or os.getenv("INFLUXDB_BUCKET", "detections")
 
         if not self.token:
-            raise ValueError("InfluxDB token must be provided via parameter or INFLUXDB_TOKEN env var")
+            raise ValueError(
+                "InfluxDB token must be provided via parameter or INFLUXDB_TOKEN env var"
+            )
 
         self.client = InfluxDBClient(url=self.url, token=self.token, org=self.org)
         self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
@@ -55,7 +57,7 @@ class DetectionLogger:
         queue_depth: Optional[int] = None,
         gstreamer_buffers: Optional[int] = None,
         detection_backlog: Optional[int] = None,
-        memory_usage_mb: Optional[float] = None
+        memory_usage_mb: Optional[float] = None,
     ) -> None:
         """
         Log detected objects to InfluxDB.
@@ -71,7 +73,7 @@ class DetectionLogger:
             detection_backlog: Number of frames waiting for detection processing
             memory_usage_mb: Current memory usage in MB
         """
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(timezone.utc)
 
         # Log frame-level metrics
         frame_point = (
@@ -127,9 +129,7 @@ class DetectionLogger:
         self.write_api.write(bucket=self.bucket, org=self.org, record=points)
 
     def log_class_counts(
-        self,
-        class_counts: Dict[str, int],
-        source_name: str = "default"
+        self, class_counts: Dict[str, int], source_name: str = "default"
     ) -> None:
         """
         Log aggregated class counts.
@@ -138,7 +138,7 @@ class DetectionLogger:
             class_counts: Dictionary mapping class names to counts
             source_name: Name of the video source
         """
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(timezone.utc)
 
         for class_name, count in class_counts.items():
             point = (
@@ -151,9 +151,7 @@ class DetectionLogger:
             self.write_api.write(bucket=self.bucket, org=self.org, record=point)
 
     def log_directions(
-        self,
-        directions: List[Dict],
-        source_name: str = "default"
+        self, directions: List[Dict], source_name: str = "default"
     ) -> None:
         """
         Log object movement directions to InfluxDB.
@@ -162,7 +160,7 @@ class DetectionLogger:
             directions: List of direction dicts with keys: class_name, direction, speed_mph, track_id
             source_name: Name of the video source
         """
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(timezone.utc)
 
         points = []
         for direction in directions:
@@ -205,20 +203,20 @@ if __name__ == "__main__":
                 {
                     "class_name": "person",
                     "confidence": 0.92,
-                    "bbox": {"x1": 100.5, "y1": 200.5, "x2": 300.5, "y2": 500.5}
+                    "bbox": {"x1": 100.5, "y1": 200.5, "x2": 300.5, "y2": 500.5},
                 },
                 {
                     "class_name": "car",
                     "confidence": 0.87,
-                    "bbox": {"x1": 400.5, "y1": 300.5, "x2": 600.5, "y2": 450.5}
-                }
+                    "bbox": {"x1": 400.5, "y1": 300.5, "x2": 600.5, "y2": 450.5},
+                },
             ]
 
             logger.log_detections(
                 detections=sample_detections,
                 source_name="test_source",
                 frame_number=1,
-                processing_time_ms=45.2
+                processing_time_ms=45.2,
             )
 
             # Test direction logging
@@ -227,19 +225,18 @@ if __name__ == "__main__":
                     "class_name": "car",
                     "direction": "left-to-right",
                     "speed_mph": 35.5,
-                    "track_id": 123
+                    "track_id": 123,
                 },
                 {
                     "class_name": "truck",
                     "direction": "right-to-left",
                     "speed_mph": 28.2,
-                    "track_id": 456
-                }
+                    "track_id": 456,
+                },
             ]
 
             logger.log_directions(
-                directions=sample_directions,
-                source_name="test_source"
+                directions=sample_directions, source_name="test_source"
             )
 
             print("✓ Successfully logged test detections and directions to InfluxDB")

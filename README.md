@@ -1,99 +1,95 @@
-# Eyeball - Real-time Object Detection with NDI
+# Eyeball - Real-time Object Detection with SRT Streams
 
-Real-time object detection and tracking using YOLO11 with NDI video streams. Tracks vehicles, people, and bicycles with direction detection, speed calculation, and automatic screenshot capture. Includes time-series metrics storage with InfluxDB.
+Real-time object detection and tracking using YOLO11 with SRT (Secure Reliable Transport) video streams. Tracks vehicles, people, and bicycles with direction detection, speed calculation, and automatic screenshot capture. Includes comprehensive time-series metrics storage with InfluxDB and Grafana visualization.
 
-## Features
+## 🚀 Quick Start
 
-- **Real-time object detection** using YOLO11 medium model
-- **NDI video stream input** support
-- **Direction detection** (left-to-right / right-to-left)
-- **Speed calculation** in mph
-- **Automatic screenshot capture** for right-to-left movement
-- **Midpoint crossing detection** for accurate classification
-- **Hardware acceleration** support (CUDA, MPS, or CPU)
-- **Time-series metrics** storage with InfluxDB
-- **Headless mode** for WSL/SSH environments (auto-detected)
-
-## Quick Start
+### Prerequisites
+- Python 3.12+
+- SRT video stream source
+- GPU recommended (CUDA/MPS/CPU fallback)
 
 ### 1. Install Dependencies
-
 ```bash
+# Install Python dependencies
 uv sync
+
+# Install PyTorch (platform-specific - see pyproject.toml comments)
+# Mac M4: uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# CUDA 12.1: uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 ```
 
-### 2. (Optional) Start InfluxDB
-
+### 2. (Optional) Start InfluxDB & Grafana
 ```bash
 # Copy environment template
 cp .env.example .env
 
-# Start InfluxDB container
+# Start services with pre-configured dashboards
 docker-compose up -d
+
+# Verify InfluxDB connection
+uv run python -m eyeball.influx_client
 ```
 
 ### 3. Run the Application
-
 ```bash
+# Provide SRT URI directly
+uv run python main.py srt://192.168.1.100:4201
+
+# Or run without URI to be prompted for one
 uv run python main.py
+
+# Optional: specify detection FPS
+uv run python main.py srt://192.168.1.100:4201 12.0
 ```
 
-The application will:
-1. Auto-detect display capability (GUI vs headless mode)
-2. Search for NDI sources on the network
-3. Connect to the first available source
-4. Begin real-time detection and tracking
-5. Log detections to `vehicle_tracking.log`
-6. Save screenshots to `screenshots/` folder
-7. (If configured) Store metrics in InfluxDB
+## ✨ Features
 
-**Controls:**
-- Press `q` to quit (GUI mode)
-- Press `Ctrl+C` to stop (headless mode)
+- **Multi-method SRT streaming** with automatic fallback (GStreamer → OpenCV → FFmpeg)
+- **Real-time YOLO11 detection** with built-in object tracking
+- **Motion-based inference** to skip processing when no movement detected
+- **Direction detection** (left-to-right/right-to-left) with midpoint crossing
+- **Speed calculation** in mph based on configurable road width
+- **Automatic screenshots** for right-to-left movement with annotations
+- **Region of Interest (ROI)** support to focus on road areas
+- **Memory management** with aggressive cleanup and leak detection
+- **Hardware acceleration** (CUDA/MPS/CPU) with auto-detection
+- **Headless mode** auto-detection for WSL/SSH environments
+- **Comprehensive metrics** stored in InfluxDB with Grafana dashboards
+- **Configurable detection FPS** for performance tuning
 
-## Headless Mode (WSL/SSH)
+## 🎯 Architecture
 
-The application automatically detects when running without a display (e.g., WSL, SSH) and switches to headless mode. All detections are still logged to file and InfluxDB, but no visual window is shown.
+The system uses a sophisticated pipeline:
 
-To force headless mode:
-```python
-from eyeball import ObjectDetector
-detector = ObjectDetector(headless=True)
-detector.run()
-```
+1. **Stream Reception**: SRT stream → GStreamer/OpenCV/FFmpeg fallback
+2. **Frame Processing**: Motion detection → YOLO inference → Tracking
+3. **Analytics**: Direction/speed calculation → Screenshot capture
+4. **Storage**: File logging + InfluxDB metrics + Grafana visualization
 
-## Output
+### Core Components
+- `ObjectDetector`: Main orchestrator coordinating all components
+- `StreamHandler`: Multi-method SRT stream reception with fallback
+- `FrameProcessor`: Motion detection and YOLO inference
+- `ObjectTracker`: YOLO tracking with speed/direction analytics
+- `GUIDashboard`: Real-time visualization (when display available)
+- `MemoryManager`: Aggressive memory cleanup and leak prevention
+- `DetectionLogger`: InfluxDB client for time-series metrics
 
-### Log File Format
-```
-2025-10-27 14:23:45.123 | Track ID: 1 | Type: car | Direction: left-to-right | Speed: 28.5 mph
-2025-10-27 14:23:52.456 | Track ID: 3 | Type: truck | Direction: right-to-left | Speed: 22.3 mph | Screenshot: screenshots/track_3_20251027_142352_456.jpg
-```
+## 📊 Monitoring & Visualization
 
-### Screenshots
-Screenshots are automatically saved for objects moving right-to-left in the `screenshots/` directory with annotated bounding boxes and labels.
+### Access Points
+- **Grafana Dashboard**: http://localhost:3000 (admin/admin)
+- **InfluxDB UI**: http://localhost:8086 (admin/eyeball-admin-password)
 
-## Configuration
+### Metrics Collected
+- **Frame metrics**: Detection count, processing time, memory usage, queue depth
+- **Object detections**: Class, confidence, bounding boxes per frame
+- **Movement tracking**: Direction, speed (mph), track IDs over time
 
-The `ObjectDetector` class accepts the following parameters:
+## ⚙️ Configuration
 
-```python
-from eyeball import ObjectDetector
-
-detector = ObjectDetector(
-    model_path='yolo11m.pt',          # YOLO model weights
-    confidence=0.4,                    # Detection threshold
-    road_width_feet=32,                # Road width for speed calc
-    log_file='vehicle_tracking.log',  # Log file path
-    screenshots_dir='screenshots',     # Screenshot directory
-    enable_influx=True,                # Enable InfluxDB logging
-    headless=False                     # Force headless mode
-)
-```
-
-### InfluxDB Configuration
-
-Create a `.env` file:
+### Environment Variables (.env)
 ```bash
 INFLUXDB_URL=http://localhost:8086
 INFLUXDB_TOKEN=eyeball-super-secret-token-change-in-production
@@ -101,32 +97,94 @@ INFLUXDB_ORG=eyeball
 INFLUXDB_BUCKET=detections
 ```
 
-**Access InfluxDB UI:**
-- URL: http://localhost:8086
-- Username: `admin`
-- Password: `eyeball-admin-password`
+### Command Line Options
+```bash
+uv run python main.py <srt_uri> [detection_fps]
 
-## Model
+# Examples:
+uv run python main.py srt://10.0.0.1:4201       # Custom stream at 6 FPS
+uv run python main.py srt://10.0.0.1:4201 12.0 # Custom stream at 12 FPS
 
-The application uses **YOLO11m** (medium) model which provides a good balance between speed and accuracy. The model will be automatically downloaded on first run (~40MB).
+# If no SRT URI is provided, you will be prompted to enter one
+```
 
-## Project Structure
+### ObjectDetector Parameters
+```python
+from eyeball import ObjectDetector
 
+detector = ObjectDetector(
+    srt_uri="srt://192.168.1.195:4201",  # SRT stream URI
+    model_path='yolo11m.pt',             # YOLO model weights
+    confidence=0.4,                      # Detection threshold
+    road_width_feet=52,                  # Road width for speed calc
+    detection_fps=6.0,                   # Processing frame rate
+    roi_box=(0, 200, 1920, 1030),       # Region of interest
+    enable_influx=True,                  # Enable metrics storage
+    headless=False                       # Force headless mode
+)
+```
+
+## 📁 Output
+
+### Log Files
+Detections logged to `vehicle_tracking.log`:
+```
+2025-10-27 14:23:45.123 | Track ID: 1 | Type: car | Direction: left-to-right | Speed: 28.5 mph
+2025-10-27 14:23:52.456 | Track ID: 3 | Type: truck | Direction: right-to-left | Speed: 22.3 mph | Screenshot: screenshots/track_3_20251027_142352_456.jpg
+```
+
+### Screenshots
+Automatically captured for right-to-left movement in `screenshots/` with annotated frames.
+
+## 🏗️ Development
+
+### Project Structure
 ```
 eyeball/
-├── eyeball/              # Main package
-│   ├── __init__.py      # Package exports
-│   ├── detector.py      # ObjectDetector class
-│   └── influx_client.py # DetectionLogger for InfluxDB
-├── main.py              # Application entry point
-├── docker-compose.yml   # InfluxDB service
-├── .env.example         # Environment variables template
-└── pyproject.toml       # Project dependencies
+├── eyeball/                    # Main package
+│   ├── __init__.py            # Package exports
+│   ├── config.py              # Configuration constants
+│   ├── detector.py            # Main ObjectDetector class
+│   ├── stream_handler.py      # SRT stream reception
+│   ├── frame_processor.py     # Motion detection & YOLO
+│   ├── object_tracker.py      # Tracking & analytics
+│   ├── gui_dashboard.py       # Real-time visualization
+│   ├── memory_manager.py      # Memory cleanup & monitoring
+│   ├── influx_client.py       # InfluxDB metrics client
+│   └── ...
+├── grafana/                   # Grafana dashboard provisioning
+├── main.py                    # Application entry point
+├── pyproject.toml             # Dependencies & project config
+├── docker-compose.yml         # InfluxDB & Grafana services
+├── .env.example               # Environment template
+└── AGENTS.md                  # Development guidelines
 ```
 
-## Requirements
+### Key Dependencies
+- **ultralytics**: YOLO11 model and inference
+- **opencv-python**: Video processing and display
+- **torch/torchvision**: PyTorch ML framework
+- **influxdb-client**: Time-series database client
+- **pygobject/pycairo**: GStreamer SRT streaming
+- **ffmpeg-python**: FFmpeg subprocess fallback
 
-- Python 3.12+
-- NDI-compatible video source on the network
-- GPU recommended for real-time performance (CUDA or MPS)
-- Docker (optional, for InfluxDB)
+## 🔧 Troubleshooting
+
+### Common Issues
+- **No video stream**: Verify SRT URI and network connectivity
+- **High memory usage**: System implements automatic cleanup every 20 frames
+- **Slow performance**: Reduce detection_fps or check GPU utilization
+- **GStreamer errors**: Falls back to OpenCV, then FFmpeg automatically
+
+### Performance Tuning
+- Adjust `detection_fps` (default 6.0) based on hardware
+- Configure `roi_box` to focus processing on relevant areas
+- Monitor memory usage in Grafana dashboard
+
+## 📈 Performance Optimizations
+
+- **Frame skipping**: Processes every 5th frame from GStreamer (~30 FPS → 6 FPS)
+- **Motion detection**: Skips YOLO inference when no significant movement
+- **Queue management**: Maintains optimal frame buffer size
+- **Batch operations**: Efficient InfluxDB metric writes
+- **Memory monitoring**: Automatic cleanup and leak detection

@@ -11,7 +11,7 @@ from typing import Dict, Any
 from eyeball.config import (
     MEMORY_LEAK_THRESHOLD_MB,
     MEMORY_LEAK_SLOPE_THRESHOLD_MB_PER_MIN,
-    MEMORY_HISTORY_SIZE
+    MEMORY_HISTORY_SIZE,
 )
 
 
@@ -27,6 +27,7 @@ class MemoryManager:
         """Get current memory usage in MB."""
         try:
             import psutil
+
             process = psutil.Process()
             memory_info = process.memory_info()
             return memory_info.rss / 1024 / 1024
@@ -40,16 +41,14 @@ class MemoryManager:
         try:
             # This would need access to the main objects
             # For now, return basic info
-            memory_breakdown['current_memory_mb'] = self.get_memory_usage()
+            memory_breakdown["current_memory_mb"] = self.get_memory_usage()
             return memory_breakdown
         except Exception as e:
-            return {'error': str(e)}
+            return {"error": str(e)}
 
     def aggressive_memory_cleanup(self, frame_count: int):
         """Perform aggressive memory cleanup."""
         try:
-            initial_memory = self.get_memory_usage()
-
             # Force multiple garbage collection cycles
             collected = 0
             for _ in range(3):
@@ -62,12 +61,12 @@ class MemoryManager:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
                 torch.cuda.synchronize()
-                if hasattr(torch.cuda, 'reset_peak_memory_stats'):
+                if hasattr(torch.cuda, "reset_peak_memory_stats"):
                     torch.cuda.reset_peak_memory_stats()
             elif torch.backends.mps.is_available():
                 try:
                     torch.mps.empty_cache()
-                except:
+                except RuntimeError:
                     pass
             else:
                 gc.collect()
@@ -97,8 +96,10 @@ class MemoryManager:
         slope = memory_span / time_span if time_span > 0 else 0
 
         current_memory = self.memory_history[-1][1] if self.memory_history else 0
-        if current_memory > MEMORY_LEAK_THRESHOLD_MB and slope > (MEMORY_LEAK_SLOPE_THRESHOLD_MB_PER_MIN / 60.0):
-            self.logger.warning(f"Memory leak detected! Trend: +{slope*60:.2f}MB/min")
+        if current_memory > MEMORY_LEAK_THRESHOLD_MB and slope > (
+            MEMORY_LEAK_SLOPE_THRESHOLD_MB_PER_MIN / 60.0
+        ):
+            self.logger.warning(f"Memory leak detected! Trend: +{slope * 60:.2f}MB/min")
             self.emergency_memory_cleanup()
 
     def emergency_memory_cleanup(self):
@@ -124,5 +125,5 @@ class MemoryManager:
         for _ in range(5):
             gc.collect()
 
-        if hasattr(sys, '_clear_type_cache'):
+        if hasattr(sys, "_clear_type_cache"):
             sys._clear_type_cache()

@@ -12,14 +12,20 @@ from eyeball.config import (
     MOTION_THRESHOLD_PIXELS,
     MOTION_PIXEL_PERCENTAGE_MULTIPLIER,
     BACKGROUND_SUBTRACTOR_HISTORY,
-    BACKGROUND_SUBTRACTOR_VAR_THRESHOLD
+    BACKGROUND_SUBTRACTOR_VAR_THRESHOLD,
 )
 
 
 class FrameProcessor:
     """Handles frame preprocessing, motion detection, and YOLO inference."""
 
-    def __init__(self, model_path: str, confidence: float, device: str, roi_box: Optional[Tuple[int, int, int, int]]):
+    def __init__(
+        self,
+        model_path: str,
+        confidence: float,
+        device: str,
+        roi_box: Optional[Tuple[int, int, int, int]],
+    ):
         self.logger = logging.getLogger(__name__)
         self.model_path = model_path
         self.confidence = confidence
@@ -34,7 +40,7 @@ class FrameProcessor:
         self.back_sub = cv2.createBackgroundSubtractorMOG2(
             history=BACKGROUND_SUBTRACTOR_HISTORY,
             varThreshold=BACKGROUND_SUBTRACTOR_VAR_THRESHOLD,
-            detectShadows=True
+            detectShadows=True,
         )
         self.motion_threshold = MOTION_THRESHOLD_PIXELS
 
@@ -42,7 +48,9 @@ class FrameProcessor:
         self.prev_frame = None
         self.inference_size = None
 
-    def process_frame(self, frame_bgr: np.ndarray, frame_count: int, frame_skip_interval: int) -> Tuple[np.ndarray, np.ndarray, bool, List[Dict], float, float]:
+    def process_frame(
+        self, frame_bgr: np.ndarray, frame_count: int, frame_skip_interval: int
+    ) -> Tuple[np.ndarray, np.ndarray, bool, List[Dict], float, float]:
         """
         Process a single video frame with motion detection and optional YOLO inference.
 
@@ -71,7 +79,9 @@ class FrameProcessor:
         if current_height != target_height:
             aspect_ratio = current_width / current_height
             target_width = int(target_height * aspect_ratio)
-            inference_frame = cv2.resize(frame_bgr, (target_width, target_height), interpolation=cv2.INTER_LINEAR)
+            inference_frame = cv2.resize(
+                frame_bgr, (target_width, target_height), interpolation=cv2.INTER_LINEAR
+            )
             self.inference_size = (target_width, target_height)
         else:
             inference_frame = frame_bgr
@@ -91,7 +101,11 @@ class FrameProcessor:
 
         motion_pixels_raw = cv2.countNonZero(fg_mask)
         total_pixels = inference_frame.shape[0] * inference_frame.shape[1]
-        motion_pixels = (motion_pixels_raw / total_pixels) * MOTION_PIXEL_PERCENTAGE_MULTIPLIER if total_pixels > 0 else 0
+        motion_pixels = (
+            (motion_pixels_raw / total_pixels) * MOTION_PIXEL_PERCENTAGE_MULTIPLIER
+            if total_pixels > 0
+            else 0
+        )
         has_motion = motion_pixels_raw > self.motion_threshold
 
         # Frame differencing
@@ -107,7 +121,9 @@ class FrameProcessor:
         # Skip YOLO if no significant motion
         if not has_motion and frame_count > 10:
             # Return resized frame and motion mask
-            annotated_frame = cv2.resize(frame_bgr, self.inference_size, interpolation=cv2.INTER_LINEAR)
+            annotated_frame = cv2.resize(
+                frame_bgr, self.inference_size, interpolation=cv2.INTER_LINEAR
+            )
             return annotated_frame, fg_mask, has_motion, [], 0.0, motion_pixels
 
         # Run YOLO inference
@@ -117,7 +133,7 @@ class FrameProcessor:
             device=self.device,
             conf=self.confidence,
             verbose=False,
-            persist=True
+            persist=True,
         )
         inference_time_ms = (time.time() - inference_start) * 1000
 
@@ -139,20 +155,31 @@ class FrameProcessor:
                 x2_orig = x2 * scale_x
                 y2_orig = y2 * scale_y
 
-                detections.append({
-                    "track_id": track_id,
-                    "class_id": cls,
-                    "confidence": float(conf),
-                    "bbox": {
-                        "x1": float(x1_orig),
-                        "y1": float(y1_orig),
-                        "x2": float(x2_orig),
-                        "y2": float(y2_orig)
+                detections.append(
+                    {
+                        "track_id": track_id,
+                        "class_id": cls,
+                        "confidence": float(conf),
+                        "bbox": {
+                            "x1": float(x1_orig),
+                            "y1": float(y1_orig),
+                            "x2": float(x2_orig),
+                            "y2": float(y2_orig),
+                        },
                     }
-                })
+                )
 
-        return annotated_frame, fg_mask, has_motion, detections, inference_time_ms, motion_pixels
+        return (
+            annotated_frame,
+            fg_mask,
+            has_motion,
+            detections,
+            inference_time_ms,
+            motion_pixels,
+        )
 
     def reset_background_subtractor(self):
         """Reset the background subtractor to clear accumulated history."""
-        self.back_sub = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=50, detectShadows=False)
+        self.back_sub = cv2.createBackgroundSubtractorMOG2(
+            history=100, varThreshold=50, detectShadows=False
+        )
