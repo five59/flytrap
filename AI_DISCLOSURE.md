@@ -6,7 +6,21 @@ This repository (Flytrap) has been built and is maintained with the assistance o
 
 ## AI Models and Agents Used
 
-### Primary Development Assistant
+### AI Models
+
+- **Big Pickle** (OpenCode)
+  - Contributed to code optimization and performance improvements
+  - Assisted with testing strategies and CI/CD pipeline configuration
+
+- **Code Supernova** (No Longer Available)
+  - Assisted with infrastructure setup and deployment configurations
+  - Helped with security best practices and code review processes
+
+- **Grok Code Fast 1**
+  - Helped with algorithm design and computer vision model selection
+  - Contributed to documentation writing and technical content creation
+
+### AI Agents
 
 - **GitHub Copilot**
   - AI-powered code completion and intelligent code suggestions
@@ -18,17 +32,9 @@ This repository (Flytrap) has been built and is maintained with the assistance o
   - Assisted with Python code generation, debugging, and documentation
   - Helped implement complex features like SRT streaming, YOLO11 integration, and real-time object tracking
 
-- **OpenCode's Big Pickle**
-  - Contributed to code optimization and performance improvements
-  - Assisted with testing strategies and CI/CD pipeline configuration
-
-- **Grok Code Fast 1**
-  - Helped with algorithm design and computer vision model selection
-  - Contributed to documentation writing and technical content creation
-
-- **Code Supernova Model (No Longer Available)**
-  - Assisted with infrastructure setup and deployment configurations
-  - Helped with security best practices and code review processes
+- **OpenCode**
+  - Provided access to Big Pickle model for development tasks
+  - Assisted with general coding assistance and project management
 
 ## How AI Was Used
 
