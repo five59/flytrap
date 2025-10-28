@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import patch
-from eyeball.memory_manager import MemoryManager
+from flytrap.memory_manager import MemoryManager
 
 
 class TestMemoryManager:

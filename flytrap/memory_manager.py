@@ -8,7 +8,7 @@ import gc
 import torch
 import sys
 from typing import Dict, Any
-from eyeball.config import (
+from flytrap.config import (
     MEMORY_LEAK_THRESHOLD_MB,
     MEMORY_LEAK_SLOPE_THRESHOLD_MB_PER_MIN,
     MEMORY_HISTORY_SIZE,

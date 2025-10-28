@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Create Eyeball dashboard in Grafana via API
+Create Flytrap dashboard in Grafana via API
 """
 
 import requests
@@ -12,8 +12,8 @@ AUTH = ("admin", "admin")
 # Dashboard JSON
 dashboard = {
     "dashboard": {
-        "title": "Eyeball Object Detection",
-        "tags": ["eyeball", "object-detection"],
+        "title": "Flytrap Object Detection",
+        "tags": ["flytrap", "object-detection"],
         "timezone": "browser",
         "panels": [
             {

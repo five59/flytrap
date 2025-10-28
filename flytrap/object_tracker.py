@@ -5,7 +5,7 @@ Object tracking and logging module.
 import logging
 from datetime import datetime
 from typing import Dict, Optional
-from eyeball.config import (
+from flytrap.config import (
     TRACKING_POSITION_HISTORY_SIZE,
     TRACKING_CLEANUP_TIME_SECONDS,
     TRACKING_MAX_POSITIONS,
@@ -66,8 +66,14 @@ class ObjectTracker:
         center_y = (bbox["y1"] + bbox["y2"]) / 2
         return center_x, center_y
 
-    def _initialize_track(self, track_id: int, cls: int, center_x: float,
-                         center_y: float, current_time: float):
+    def _initialize_track(
+        self,
+        track_id: int,
+        cls: int,
+        center_x: float,
+        center_y: float,
+        current_time: float,
+    ):
         """Initialize a new track for an object."""
         self.tracked_objects[track_id] = {
             "positions": [(center_x, center_y, current_time)],
@@ -77,14 +83,25 @@ class ObjectTracker:
             "midpoint_cross_position": None,
         }
 
-    def _update_existing_track(self, track_id: int, cls: int, center_x: float,
-                              center_y: float, current_time: float):
+    def _update_existing_track(
+        self,
+        track_id: int,
+        cls: int,
+        center_x: float,
+        center_y: float,
+        current_time: float,
+    ):
         """Update an existing track with new position data."""
         self.tracked_objects[track_id]["class"] = cls
-        self.tracked_objects[track_id]["positions"].append((center_x, center_y, current_time))
+        self.tracked_objects[track_id]["positions"].append(
+            (center_x, center_y, current_time)
+        )
 
         # Keep only last N positions
-        if len(self.tracked_objects[track_id]["positions"]) > TRACKING_POSITION_HISTORY_SIZE:
+        if (
+            len(self.tracked_objects[track_id]["positions"])
+            > TRACKING_POSITION_HISTORY_SIZE
+        ):
             self.tracked_objects[track_id]["positions"].pop(0)
 
         # Check for midpoint crossing and log if needed
@@ -98,14 +115,14 @@ class ObjectTracker:
 
         track_data = self.tracked_objects[track_id]
 
-        if (track_data["crossed_midpoint"] or
-            len(track_data["positions"]) < 2):
+        if track_data["crossed_midpoint"] or len(track_data["positions"]) < 2:
             return False
 
         prev_x = track_data["positions"][-2][0]
 
-        if ((prev_x < self.frame_midpoint_x <= center_x) or
-            (prev_x > self.frame_midpoint_x >= center_x)):
+        if (prev_x < self.frame_midpoint_x <= center_x) or (
+            prev_x > self.frame_midpoint_x >= center_x
+        ):
             track_data["crossed_midpoint"] = True
             track_data["midpoint_cross_position"] = len(track_data["positions"]) - 1
             return True
@@ -125,7 +142,9 @@ class ObjectTracker:
             if track_id not in self.tracked_objects:
                 self._initialize_track(track_id, cls, center_x, center_y, current_time)
             else:
-                self._update_existing_track(track_id, cls, center_x, center_y, current_time)
+                self._update_existing_track(
+                    track_id, cls, center_x, center_y, current_time
+                )
 
     def _log_tracked_object(self, track_id: int, cls: int) -> Optional[str]:
         """Log a tracked object that has crossed the midpoint."""
@@ -156,8 +175,10 @@ class ObjectTracker:
         displacement_pixels = end_x - start_x
         time_elapsed = end_time - start_time
 
-        if (abs(displacement_pixels) <= TRACKING_MIDPOINT_DISPLACEMENT_THRESHOLD or
-            time_elapsed <= 0):
+        if (
+            abs(displacement_pixels) <= TRACKING_MIDPOINT_DISPLACEMENT_THRESHOLD
+            or time_elapsed <= 0
+        ):
             return None
 
         direction = "left-to-right" if displacement_pixels > 0 else "right-to-left"
@@ -175,13 +196,17 @@ class ObjectTracker:
             "time_elapsed": time_elapsed,
         }
 
-    def _prepare_logging_data(self, track_id: int, cls: int, movement_data: dict) -> dict:
+    def _prepare_logging_data(
+        self, track_id: int, cls: int, movement_data: dict
+    ) -> dict:
         """Prepare all data needed for logging."""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
         vehicle_type = self.CLASS_NAMES.get(cls, "object")
 
         time_str = datetime.now().strftime("%m%d_%H%M")
-        screenshot_filename = f"{self.screenshots_dir}/{time_str}-{vehicle_type}-{track_id}.jpg"
+        screenshot_filename = (
+            f"{self.screenshots_dir}/{time_str}-{vehicle_type}-{track_id}.jpg"
+        )
 
         return {
             "timestamp": timestamp,
@@ -198,15 +223,19 @@ class ObjectTracker:
         self._log_to_influx(logging_data)
         self.tracked_objects[track_id]["logged"] = True
 
-        print(f"Logged: {logging_data['vehicle_type']} {logging_data['direction']} "
-              f"at {logging_data['speed_mph']:.1f} mph - {logging_data['timestamp']}")
+        print(
+            f"Logged: {logging_data['vehicle_type']} {logging_data['direction']} "
+            f"at {logging_data['speed_mph']:.1f} mph - {logging_data['timestamp']}"
+        )
 
     def _log_to_file(self, logging_data: dict):
         """Log tracking data to file."""
         with open(self.log_file, "a") as f:
-            log_entry = (f"{logging_data['timestamp']} | Track ID: {logging_data['track_id']} | "
-                        f"Type: {logging_data['vehicle_type']} | Direction: {logging_data['direction']} | "
-                        f"Speed: {logging_data['speed_mph']:.1f} mph")
+            log_entry = (
+                f"{logging_data['timestamp']} | Track ID: {logging_data['track_id']} | "
+                f"Type: {logging_data['vehicle_type']} | Direction: {logging_data['direction']} | "
+                f"Speed: {logging_data['speed_mph']:.1f} mph"
+            )
             if logging_data["screenshot_filename"]:
                 log_entry += f" | Screenshot: {logging_data['screenshot_filename']}"
             f.write(log_entry + "\n")
@@ -215,7 +244,8 @@ class ObjectTracker:
         """Add log entry to GUI display."""
         log_timestamp = datetime.now().strftime("%H:%M:%S")
         self.influx_log_lines.insert(
-            0, f"{log_timestamp}: Detected {logging_data['vehicle_type']}. Motion: {logging_data['direction']}"
+            0,
+            f"{log_timestamp}: Detected {logging_data['vehicle_type']}. Motion: {logging_data['direction']}",
         )
         if len(self.influx_log_lines) > INFLUX_LOG_MAX_ENTRIES:
             self.influx_log_lines.pop()
@@ -226,12 +256,14 @@ class ObjectTracker:
             return
 
         try:
-            direction_data = [{
-                "class_name": logging_data["vehicle_type"],
-                "direction": logging_data["direction"],
-                "speed_mph": logging_data["speed_mph"],
-                "track_id": logging_data["track_id"],
-            }]
+            direction_data = [
+                {
+                    "class_name": logging_data["vehicle_type"],
+                    "direction": logging_data["direction"],
+                    "speed_mph": logging_data["speed_mph"],
+                    "track_id": logging_data["track_id"],
+                }
+            ]
             self.influx_logger.log_directions(direction_data, source_name="srt_stream")
         except Exception as e:
             print(f"Failed to log direction to InfluxDB: {e}")

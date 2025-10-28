@@ -1,12 +1,12 @@
 """
-Eyeball - Real-time object detection with NDI and YOLO.
+Flytrap - Real-time object detection with NDI and YOLO.
 
 Main entry point for the application.
 """
 
 import os
 import sys
-from eyeball import ObjectDetector
+from flytrap import ObjectDetector
 
 
 def _prompt_for_srt_uri() -> str:
@@ -65,7 +65,7 @@ def main():
     print("If no SRT URI is provided, you will be prompted to enter one.")
 
     # Add SRT connection timeout to prevent hanging
-    from eyeball.config import SRT_CONNECTION_TIMEOUT_MS
+    from flytrap.config import SRT_CONNECTION_TIMEOUT_MS
 
     timeout_param = f"timeout={SRT_CONNECTION_TIMEOUT_MS}"
     if "?" not in srt_uri:

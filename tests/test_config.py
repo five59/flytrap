@@ -1,7 +1,7 @@
 """Tests for config module."""
 
 import pytest
-from eyeball.config import (
+from flytrap.config import (
     DEFAULT_DETECTION_FPS,
     FRAME_SKIP_INTERVAL_BASE,
     FRAME_QUEUE_MAX_SIZE,

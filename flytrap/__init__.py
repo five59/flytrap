@@ -1,11 +1,11 @@
 """
-Eyeball - Real-time object detection with NDI and YOLO.
+Flytrap - Real-time object detection with NDI and YOLO.
 """
 
 import logging
 
-from eyeball.detector import ObjectDetector
-from eyeball.influx_client import DetectionLogger
+from flytrap.detector import ObjectDetector
+from flytrap.influx_client import DetectionLogger
 
 __version__ = "0.1.0"
 

@@ -10,7 +10,7 @@ import os
 import queue
 import numpy as np
 from typing import Optional, Tuple
-from eyeball.config import (
+from flytrap.config import (
     DEFAULT_DETECTION_FPS,
     FRAME_SKIP_INTERVAL_BASE,
     FRAME_QUEUE_MAX_SIZE,
@@ -19,12 +19,12 @@ from eyeball.config import (
     MEMORY_DEEP_CLEANUP_INTERVAL_FRAMES,
     WINDOW_NAME,
 )
-from eyeball.stream_handler import StreamHandler
-from eyeball.frame_processor import FrameProcessor
-from eyeball.object_tracker import ObjectTracker
-from eyeball.gui_dashboard import GUIDashboard
-from eyeball.memory_manager import MemoryManager
-from eyeball.influx_client import DetectionLogger
+from flytrap.stream_handler import StreamHandler
+from flytrap.frame_processor import FrameProcessor
+from flytrap.object_tracker import ObjectTracker
+from flytrap.gui_dashboard import GUIDashboard
+from flytrap.memory_manager import MemoryManager
+from flytrap.influx_client import DetectionLogger
 
 
 class ObjectDetector:
@@ -83,7 +83,9 @@ class ObjectDetector:
                 self.logger.info("Continuing without time-series logging")
 
         # Initialize components
-        self.frame_queue: queue.Queue[np.ndarray] = queue.Queue(maxsize=FRAME_QUEUE_MAX_SIZE)
+        self.frame_queue: queue.Queue[np.ndarray] = queue.Queue(
+            maxsize=FRAME_QUEUE_MAX_SIZE
+        )
         self.stream_handler = StreamHandler(
             srt_uri, self.frame_queue, self.frame_skip_interval
         )
@@ -142,9 +144,7 @@ class ObjectDetector:
 
         try:
             self._create_display_window(window_size)
-            print(
-                f"✓ Display window created ({window_size[0]}x{window_size[1]})"
-            )
+            print(f"✓ Display window created ({window_size[0]}x{window_size[1]})")
             print("  2-column dashboard: Video frames | Metrics dashboard")
         except Exception as e:
             self._handle_window_creation_error(e)
@@ -234,9 +234,7 @@ class ObjectDetector:
             detections,
             processing_time_ms,
             motion_pixels,
-        ) = self.frame_processor.process_frame(
-            frame_bgr, self.frame_count
-        )
+        ) = self.frame_processor.process_frame(frame_bgr, self.frame_count)
 
         return {
             "annotated_frame": annotated_frame,
@@ -267,9 +265,15 @@ class ObjectDetector:
                 "motion_pixels": processing_results["motion_pixels"],
             }
 
-    def _cleanup_frame_references(self, frame_bgr: np.ndarray, processing_results: dict) -> None:
+    def _cleanup_frame_references(
+        self, frame_bgr: np.ndarray, processing_results: dict
+    ) -> None:
         """Clean up frame references to free memory."""
-        del processing_results["annotated_frame"], processing_results["fg_mask"], processing_results["detections"]
+        del (
+            processing_results["annotated_frame"],
+            processing_results["fg_mask"],
+            processing_results["detections"],
+        )
         del frame_bgr
 
     def _handle_display(self) -> None:
@@ -283,7 +287,9 @@ class ObjectDetector:
 
     def _collect_dashboard_data(self) -> dict:
         """Collect all data needed for the dashboard display."""
-        processing_time_ms = self._last_processing_results.get("processing_time_ms", 0.0)
+        processing_time_ms = self._last_processing_results.get(
+            "processing_time_ms", 0.0
+        )
         motion_pixels = self._last_processing_results.get("motion_pixels", 0.0)
 
         return {
@@ -296,7 +302,9 @@ class ObjectDetector:
             "memory_usage_mb": self.memory_manager.get_memory_usage(),
             "frame_count": self.frame_count,
             "tracked_objects_count": self.object_tracker.get_tracked_count(),
-            "device_type": "GPU" if "cuda" in self.device or "mps" in self.device else "CPU",
+            "device_type": "GPU"
+            if "cuda" in self.device or "mps" in self.device
+            else "CPU",
             "inference_device": self.device,
             "influx_log_lines": self.object_tracker.influx_log_lines,
         }

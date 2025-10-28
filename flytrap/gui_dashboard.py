@@ -6,7 +6,7 @@ import logging
 import cv2
 import numpy as np
 from typing import List
-from eyeball.config import (
+from flytrap.config import (
     DASHBOARD_WIDTH,
     DASHBOARD_HEIGHT,
     VIDEO_FRAME_HEIGHT,
@@ -105,9 +105,13 @@ class GUIDashboard:
         resized_height = int(target_width * aspect_ratio)
 
         if resized_height > target_height:
-            self._fit_to_height(dashboard, frame, target_width, target_height, y_start, y_end)
+            self._fit_to_height(
+                dashboard, frame, target_width, target_height, y_start, y_end
+            )
         else:
-            self._fit_to_width(dashboard, frame, target_width, resized_height, y_start, target_height)
+            self._fit_to_width(
+                dashboard, frame, target_width, resized_height, y_start, target_height
+            )
 
     def _fit_to_height(
         self,
@@ -175,7 +179,9 @@ class GUIDashboard:
         left_bottom_y = self._draw_metrics_column(dashboard, metrics[:4], left_column_x)
 
         # Draw right column
-        right_bottom_y = self._draw_metrics_column(dashboard, metrics[4:], right_column_x)
+        right_bottom_y = self._draw_metrics_column(
+            dashboard, metrics[4:], right_column_x
+        )
 
         # Return the maximum bottom position
         return max(left_bottom_y, right_bottom_y)
@@ -246,19 +252,35 @@ class GUIDashboard:
     ) -> None:
         """Add queue depth visualization bar to the dashboard."""
         metrics_x = VIDEO_COLUMN_WIDTH + 20
-        queue_label_y = getattr(self, '_metrics_bottom_y', 50 + (8 * 85)) + 20  # After metrics + spacing
+        queue_label_y = (
+            getattr(self, "_metrics_bottom_y", 50 + (8 * 85)) + 20
+        )  # After metrics + spacing
 
         self._draw_queue_label(dashboard, metrics_x, queue_label_y)
-        self._draw_queue_visualization(dashboard, metrics_x, queue_label_y, queue_depth, queue_max)
+        self._draw_queue_visualization(
+            dashboard, metrics_x, queue_label_y, queue_depth, queue_max
+        )
 
     def _draw_queue_label(self, dashboard: np.ndarray, x: int, y: int) -> None:
         """Draw the queue depth label."""
         cv2.putText(
-            dashboard, "Queue Depth", (x, y), self.font, 0.5, (150, 150, 150), 1, cv2.LINE_AA
+            dashboard,
+            "Queue Depth",
+            (x, y),
+            self.font,
+            0.5,
+            (150, 150, 150),
+            1,
+            cv2.LINE_AA,
         )
 
     def _draw_queue_visualization(
-        self, dashboard: np.ndarray, x: int, label_y: int, queue_depth: int, queue_max: int
+        self,
+        dashboard: np.ndarray,
+        x: int,
+        label_y: int,
+        queue_depth: int,
+        queue_max: int,
     ) -> None:
         """Draw the queue depth bar and text."""
         bar_x, bar_y = x, label_y + 10
@@ -266,7 +288,9 @@ class GUIDashboard:
 
         # Draw background and fill
         self._draw_bar_background(dashboard, bar_x, bar_y, bar_width, bar_height)
-        self._draw_bar_fill(dashboard, bar_x, bar_y, bar_width, bar_height, queue_depth, queue_max)
+        self._draw_bar_fill(
+            dashboard, bar_x, bar_y, bar_width, bar_height, queue_depth, queue_max
+        )
         self._draw_bar_border(dashboard, bar_x, bar_y, bar_width, bar_height)
 
         # Draw text label
@@ -313,7 +337,9 @@ class GUIDashboard:
         """Add InfluxDB log display to the bottom of the dashboard."""
         metrics_x = VIDEO_COLUMN_WIDTH + 20
         # Position after queue bar (which is after metrics)
-        queue_bar_bottom = getattr(self, '_metrics_bottom_y', 50 + (8 * 85)) + 20 + 10 + 30
+        queue_bar_bottom = (
+            getattr(self, "_metrics_bottom_y", 50 + (8 * 85)) + 20 + 10 + 30
+        )
         influx_y_start = queue_bar_bottom + 20
 
         available_height = DASHBOARD_HEIGHT - influx_y_start - 10

@@ -36,7 +36,7 @@ class DetectionLogger:
         """
         self.url = url or os.getenv("INFLUXDB_URL", "http://localhost:8086")
         self.token = token or os.getenv("INFLUXDB_TOKEN")
-        self.org = org or os.getenv("INFLUXDB_ORG", "eyeball")
+        self.org = org or os.getenv("INFLUXDB_ORG", "flytrap")
         self.bucket = bucket or os.getenv("INFLUXDB_BUCKET", "detections")
 
         if not self.token:
@@ -53,8 +53,6 @@ class DetectionLogger:
             raise ValueError(
                 "InfluxDB bucket must be provided via parameter or INFLUXDB_BUCKET env var"
             )
-
-
 
         self.client = InfluxDBClient(url=self.url, token=self.token, org=self.org)
         self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
