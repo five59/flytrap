@@ -229,6 +229,7 @@ class StreamHandler:
 
     def _get_frame_opencv(self, frame_skip_counter: int, frame_skip_interval: int):
         """Get frame from OpenCV VideoCapture."""
+        assert self.cap is not None, "OpenCV capture not initialized"
         ret, frame_bgr = self.cap.read()
         if not ret:
             print("Failed to read frame from OpenCV SRT stream")

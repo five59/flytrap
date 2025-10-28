@@ -45,11 +45,11 @@ class ObjectTracker:
 
         # Tracking state
         self.tracked_objects: Dict = {}
-        self.frame_width = None
-        self.frame_midpoint_x = None
+        self.frame_width: Optional[int] = None
+        self.frame_midpoint_x: Optional[float] = None
 
         # Influx log lines for GUI
-        self.influx_log_lines = []
+        self.influx_log_lines: list[str] = []
 
     def set_frame_info(self, frame_width: int):
         """Set frame dimensions for tracking calculations."""
@@ -93,6 +93,9 @@ class ObjectTracker:
 
     def _check_midpoint_crossing(self, track_id: int, center_x: float) -> bool:
         """Check if an object has crossed the frame midpoint."""
+        if self.frame_midpoint_x is None:
+            return False
+
         track_data = self.tracked_objects[track_id]
 
         if (track_data["crossed_midpoint"] or
@@ -145,6 +148,9 @@ class ObjectTracker:
 
     def _calculate_movement_data(self, positions: list) -> Optional[dict]:
         """Calculate movement data from position history."""
+        if self.frame_width is None:
+            return None
+
         start_x, _, start_time = positions[0]
         end_x, _, end_time = positions[-1]
         displacement_pixels = end_x - start_x

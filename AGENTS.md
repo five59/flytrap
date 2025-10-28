@@ -3,6 +3,8 @@
 ## Build/Lint/Test Commands
 - **Install dependencies**: `uv sync`
 - **Install dev dependencies**: `uv sync --group dev`
+- **Run linting**: `uv run ruff check eyeball/`
+- **Run type checking**: `uv run python -m mypy eyeball/ --ignore-missing-imports`
 - **Run application**: `uv run python main.py`
 - **Run with custom SRT URI**: `uv run python main.py srt://your-ip:port`
 - **Test InfluxDB connection**: `uv run python -m eyeball.influx_client`

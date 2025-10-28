@@ -2,6 +2,13 @@
 
 Real-time object detection and tracking using YOLO11 with SRT (Secure Reliable Transport) video streams. Tracks vehicles, people, and bicycles with direction detection, speed calculation, and automatic screenshot capture. Includes comprehensive time-series metrics storage with InfluxDB and Grafana visualization.
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=five59_eyeball&metric=alert_status&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_eyeball)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=five59_eyeball&metric=reliability_rating&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_eyeball)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=five59_eyeball&metric=security_rating&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_eyeball)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=five59_eyeball&metric=sqale_rating&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_eyeball)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=five59_eyeball&metric=vulnerabilities&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_eyeball)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=five59_eyeball&metric=code_smells&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_eyeball)
+
 ## 🚀 Quick Start
 
 ### Prerequisites

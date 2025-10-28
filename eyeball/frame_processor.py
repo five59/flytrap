@@ -45,8 +45,8 @@ class FrameProcessor:
         self.motion_threshold = MOTION_THRESHOLD_PIXELS
 
         # Frame state
-        self.prev_frame = None
-        self.inference_size = None
+        self.prev_frame: Optional[np.ndarray] = None
+        self.inference_size: Optional[Tuple[int, int]] = None
 
     def process_frame(
         self, frame_bgr: np.ndarray, frame_count: int
@@ -85,6 +85,8 @@ class FrameProcessor:
         else:
             inference_frame = frame_bgr
             self.inference_size = (current_width, current_height)
+
+        assert self.inference_size is not None  # Set above
 
         # Calculate scale factors
         scale_x = original_width / self.inference_size[0]
@@ -142,10 +144,11 @@ class FrameProcessor:
         # Process detections
         detections = []
         if results[0].boxes is not None and results[0].boxes.id is not None:
-            boxes = results[0].boxes.xyxy.cpu().numpy()
-            track_ids = results[0].boxes.id.cpu().numpy().astype(int)
-            classes = results[0].boxes.cls.cpu().numpy().astype(int)
-            confidences = results[0].boxes.conf.cpu().numpy()
+            # Ensure tensors are on CPU and convert to numpy
+            boxes = results[0].boxes.xyxy.cpu().numpy()  # type: ignore
+            track_ids = results[0].boxes.id.cpu().numpy().astype(int)  # type: ignore
+            classes = results[0].boxes.cls.cpu().numpy().astype(int)  # type: ignore
+            confidences = results[0].boxes.conf.cpu().numpy()  # type: ignore
 
             for box, track_id, cls, conf in zip(boxes, track_ids, classes, confidences):
                 x1, y1, x2, y2 = box

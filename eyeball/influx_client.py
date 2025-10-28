@@ -44,6 +44,18 @@ class DetectionLogger:
                 "InfluxDB token must be provided via parameter or INFLUXDB_TOKEN env var"
             )
 
+        if not self.org:
+            raise ValueError(
+                "InfluxDB org must be provided via parameter or INFLUXDB_ORG env var"
+            )
+
+        if not self.bucket:
+            raise ValueError(
+                "InfluxDB bucket must be provided via parameter or INFLUXDB_BUCKET env var"
+            )
+
+
+
         self.client = InfluxDBClient(url=self.url, token=self.token, org=self.org)
         self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
 
@@ -126,7 +138,7 @@ class DetectionLogger:
             points.append(detection_point)
 
         # Write all points in batch
-        self.write_api.write(bucket=self.bucket, org=self.org, record=points)
+        self.write_api.write(bucket=self.bucket, org=self.org, record=points)  # type: ignore
 
     def log_class_counts(
         self, class_counts: Dict[str, int], source_name: str = "default"
@@ -148,7 +160,7 @@ class DetectionLogger:
                 .field("count", count)
                 .time(timestamp, WritePrecision.NS)
             )
-            self.write_api.write(bucket=self.bucket, org=self.org, record=point)
+            self.write_api.write(bucket=self.bucket, org=self.org, record=point)  # type: ignore
 
     def log_directions(
         self, directions: List[Dict], source_name: str = "default"
@@ -176,7 +188,7 @@ class DetectionLogger:
             points.append(point)
 
         # Write all points in batch
-        self.write_api.write(bucket=self.bucket, org=self.org, record=points)
+        self.write_api.write(bucket=self.bucket, org=self.org, record=points)  # type: ignore
 
     def close(self) -> None:
         """Close the InfluxDB client connection."""

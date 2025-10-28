@@ -23,6 +23,7 @@ dependencies = [
 dev = [
     "ipykernel>=7.1.0",
     "jupyterlab>=4.4.10",
+    "mypy>=1.15.0",
     "ruff>=0.14.2",
 ]
 

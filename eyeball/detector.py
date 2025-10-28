@@ -83,7 +83,7 @@ class ObjectDetector:
                 self.logger.info("Continuing without time-series logging")
 
         # Initialize components
-        self.frame_queue = queue.Queue(maxsize=FRAME_QUEUE_MAX_SIZE)
+        self.frame_queue: queue.Queue[np.ndarray] = queue.Queue(maxsize=FRAME_QUEUE_MAX_SIZE)
         self.stream_handler = StreamHandler(
             srt_uri, self.frame_queue, self.frame_skip_interval
         )
