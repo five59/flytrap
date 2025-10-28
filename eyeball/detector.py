@@ -380,7 +380,7 @@ class ObjectDetector:
             # Reset background subtractor to clear accumulated history
             if hasattr(self, 'back_sub'):
                 self.back_sub = cv2.createBackgroundSubtractorMOG2(
-                    history=100, varThreshold=50, detectShadows=True
+                    history=100, varThreshold=50, detectShadows=False
                 )
                 # Removed verbose logging - happens too often
 
@@ -460,7 +460,7 @@ class ObjectDetector:
 
             # Clear background subtractor
             if hasattr(self, 'back_sub'):
-                self.back_sub = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=50, detectShadows=True)
+                self.back_sub = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=50, detectShadows=False)
                 print("Reset background subtractor")
 
             # Force system cleanup
@@ -1180,7 +1180,7 @@ class ObjectDetector:
                 # This is in addition to the reset in _aggressive_memory_cleanup
                 if self.frame_count % 100 == 0:
                     self.back_sub = cv2.createBackgroundSubtractorMOG2(
-                        history=100, varThreshold=50, detectShadows=True
+                        history=100, varThreshold=50, detectShadows=False
                     )
                     # Removed verbose logging - already happens in regular cleanup
 
