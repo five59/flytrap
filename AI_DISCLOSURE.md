@@ -7,12 +7,17 @@ This repository (Flytrap) has been built and is maintained with the assistance o
 ## AI Models and Agents Used
 
 ### Primary Development Assistant
+
+- **GitHub Copilot**
+  - AI-powered code completion and intelligent code suggestions
+  - Assisted with code generation, refactoring, and problem-solving
+  - Helped with GitHub-specific workflows and repository management
+
 - **Anthropic's Claude Code** (claude.ai/code)
   - Used for initial project setup, architecture design, and ongoing code development
   - Assisted with Python code generation, debugging, and documentation
   - Helped implement complex features like SRT streaming, YOLO11 integration, and real-time object tracking
 
-### Additional AI Coding Assistants
 - **OpenCode's Big Pickle**
   - Contributed to code optimization and performance improvements
   - Assisted with testing strategies and CI/CD pipeline configuration
@@ -21,7 +26,7 @@ This repository (Flytrap) has been built and is maintained with the assistance o
   - Helped with algorithm design and computer vision model selection
   - Contributed to documentation writing and technical content creation
 
-- **Code Supernova Models**
+- **Code Supernova Model (No Longer Available)**
   - Assisted with infrastructure setup and deployment configurations
   - Helped with security best practices and code review processes
 
@@ -79,8 +84,9 @@ If you have questions about our use of AI tools or the development process, plea
 
 - [Anthropic Claude Code](https://claude.ai/code)
 - [OpenCode](https://opencode.ai)
-- [Grok](https://x.ai/grok)
-- [Code Supernova](https://codesupernova.ai)
+- [Grok Code Fast 1 (xAI)](https://x.ai/grok)
+- [Code Supernova](https://kilocode.ai/models/supernova) (No longer available)
+- [GitHub Copilot](https://github.com/features/copilot)
 
 ---
 
