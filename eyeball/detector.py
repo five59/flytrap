@@ -17,6 +17,7 @@ from eyeball.config import (
     MEMORY_HIGH_USAGE_THRESHOLD_MB,
     MEMORY_CLEANUP_INTERVAL_FRAMES,
     MEMORY_DEEP_CLEANUP_INTERVAL_FRAMES,
+    WINDOW_NAME,
 )
 from eyeball.stream_handler import StreamHandler
 from eyeball.frame_processor import FrameProcessor
@@ -121,38 +122,37 @@ class ObjectDetector:
         Args:
             window_size: Fixed window size as (width, height) (ignored in headless mode)
         """
-        window_name = "Traffic Detector"
-        self._setup_display_window(window_name, window_size)
+        self._setup_display_window(window_size)
 
         if not self._setup_stream():
             return
 
         try:
-            self._run_detection_loop(window_name)
+            self._run_detection_loop()
         except KeyboardInterrupt:
             print("\nStopping detection...")
         finally:
             self.cleanup()
 
-    def _setup_display_window(self, window_name: str, window_size: tuple) -> None:
+    def _setup_display_window(self, window_size: tuple) -> None:
         """Set up the display window if not in headless mode."""
         if self.headless:
             print("Running in headless mode (no display window)")
             return
 
         try:
-            self._create_display_window(window_name, window_size)
+            self._create_display_window(window_size)
             print(
-                f"✓ Display window created: {window_name} ({window_size[0]}x{window_size[1]})"
+                f"✓ Display window created ({window_size[0]}x{window_size[1]})"
             )
             print("  2-column dashboard: Video frames | Metrics dashboard")
         except Exception as e:
             self._handle_window_creation_error(e)
 
-    def _create_display_window(self, window_name: str, window_size: tuple) -> None:
+    def _create_display_window(self, window_size: tuple) -> None:
         """Create and initialize the display window."""
-        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL | cv2.WINDOW_GUI_NORMAL)
-        cv2.resizeWindow(window_name, window_size[0], window_size[1])
+        cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL | cv2.WINDOW_GUI_NORMAL)
+        cv2.resizeWindow(WINDOW_NAME, window_size[0], window_size[1])
 
         # Show initial blank frame
         blank_frame = np.zeros((window_size[1], window_size[0], 3), dtype=np.uint8)
@@ -166,7 +166,7 @@ class ObjectDetector:
             2,
             cv2.LINE_AA,
         )
-        cv2.imshow(window_name, blank_frame)
+        cv2.imshow(WINDOW_NAME, blank_frame)
         cv2.waitKey(1)  # Force window creation
 
     def _handle_window_creation_error(self, error: Exception) -> None:
@@ -189,7 +189,7 @@ class ObjectDetector:
         print("Press Ctrl+C to stop")
         return True
 
-    def _run_detection_loop(self, window_name: str) -> None:
+    def _run_detection_loop(self) -> None:
         """Run the main detection processing loop."""
         while True:
             frame_bgr = self.stream_handler.get_frame(
@@ -202,10 +202,10 @@ class ObjectDetector:
             self.frame_count += 1
 
             self._process_single_frame(frame_bgr)
-            self._handle_display(window_name)
+            self._handle_display()
             self._perform_memory_management()
 
-            if self._should_exit(window_name):
+            if self._should_exit():
                 break
 
     def _process_single_frame(self, frame_bgr: np.ndarray) -> None:
@@ -272,14 +272,14 @@ class ObjectDetector:
         del processing_results["annotated_frame"], processing_results["fg_mask"], processing_results["detections"]
         del frame_bgr
 
-    def _handle_display(self, window_name: str) -> None:
+    def _handle_display(self) -> None:
         """Handle display updates if not in headless mode."""
         if self.headless:
             return
 
         dashboard_data = self._collect_dashboard_data()
         dashboard = self.gui_dashboard.create_dashboard(**dashboard_data)
-        cv2.imshow(window_name, dashboard)
+        cv2.imshow(WINDOW_NAME, dashboard)
 
     def _collect_dashboard_data(self) -> dict:
         """Collect all data needed for the dashboard display."""
@@ -317,7 +317,7 @@ class ObjectDetector:
         if self.frame_count % MEMORY_DEEP_CLEANUP_INTERVAL_FRAMES == 0:
             self.memory_manager.deep_cleanup()
 
-    def _should_exit(self, window_name: str) -> bool:
+    def _should_exit(self) -> bool:
         """Check if the application should exit."""
         if not self.headless:
             if cv2.waitKey(1) & 0xFF == ord("q"):
