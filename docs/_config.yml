@@ -18,7 +18,7 @@
 # in the templates via {{ site.myvariable }}.
 
 title: Flytrap Documentation
-email: hello@559labs.com
+logo: /assets/images/flytrap-logo.png
 description: >- # this means to ignore newlines until "baseurl:"
   Real-time object detection and tracking using YOLO11 with SRT (Secure Reliable Transport)
   video streams. Tracks vehicles, people, and bicycles with direction detection, speed

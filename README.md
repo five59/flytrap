@@ -26,28 +26,6 @@ Real-time object detection and tracking using YOLO11 with SRT (Secure Reliable T
 - **Comprehensive metrics** stored in InfluxDB with Grafana dashboards
 - **Configurable detection FPS** for performance tuning
 
-## 🚀 Quick Start
-
-```bash
-# Install dependencies
-uv sync
-
-# Run with SRT stream
-uv run python main.py srt://192.168.1.100:4201
-```
-## 📚 Documentation
-
-Complete documentation is available in the [`docs/`](./docs/) directory:
-
-- **[Installation Guide](docs/installation.md)** - Complete setup instructions
-- **[Usage Guide](docs/usage.md)** - How to run Flytrap and interpret results
-- **[Configuration](docs/configuration.md)** - All configuration options
-- **[Architecture](docs/architecture.md)** - System design and components
-- **[Monitoring](docs/monitoring.md)** - Grafana dashboards and InfluxDB metrics
-- **[Performance](docs/performance.md)** - Optimizations and tuning guides
-- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
-- **[Development](docs/development.md)** - Project structure, testing, and contributing
-
 ## 🎯 System Overview
 
 The system uses a sophisticated pipeline:
@@ -62,16 +40,12 @@ The system uses a sophisticated pipeline:
 - **Grafana Dashboard**: http://localhost:3000 (admin/admin)
 - **InfluxDB UI**: http://localhost:8086 (admin/flytrap-admin-password)
 
-## 🏗️ Development
 
-```bash
-# Run tests
-uv run python -m pytest tests/
+## Why "Flytrap?"
 
-# Run with coverage
-uv run python -m pytest --cov=flytrap --cov-report=term tests/
-```
+**Venus Flytrap** is a character on the CBS television sitcom "[WKRP in Cincinnati](https://en.wikipedia.org/wiki/WKRP_in_Cincinnati)" that ran from 1978-1982, portrayed by actor Tim Reid. He was known for his smooth, laid-back on-air persona and stylish approach as the evening DJ. However, later in the series, the station transitioned to more of a news-focus in order to remain viable. With it, Venus' role shifted to traffic reporting -- and created as more nuanced and central character in the show.
 
----
+
+-----
 
 *Flytrap is open source software released under the MIT License.*
