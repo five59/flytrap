@@ -29,7 +29,7 @@ repository: five59/flytrap
 github_username: five59
 
 # Build settings
-remote_theme: pages-themes/minimal@v0.2.0
+remote_theme: just-the-docs
 plugins:
   - jekyll-remote-theme
   - jekyll-feed
