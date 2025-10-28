@@ -2,12 +2,12 @@
 
 Real-time object detection and tracking using YOLO11 with SRT (Secure Reliable Transport) video streams. Tracks vehicles, people, and bicycles with direction detection, speed calculation, and automatic screenshot capture. Includes comprehensive time-series metrics storage with InfluxDB and Grafana visualization.
 
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=five59_eyeball&metric=alert_status&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_eyeball)
-[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=five59_eyeball&metric=reliability_rating&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_eyeball)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=five59_eyeball&metric=security_rating&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_eyeball)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=five59_eyeball&metric=sqale_rating&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_eyeball)
-[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=five59_eyeball&metric=vulnerabilities&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_eyeball)
-[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=five59_eyeball&metric=code_smells&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_eyeball)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=five59_flytrap&metric=alert_status&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_flytrap)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=five59_flytrap&metric=reliability_rating&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_flytrap)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=five59_flytrap&metric=security_rating&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_flytrap)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=five59_flytrap&metric=sqale_rating&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_flytrap)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=five59_flytrap&metric=vulnerabilities&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_flytrap)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=five59_flytrap&metric=code_smells&token=483a73bd75336b574d29619019467791e30a8a18)](https://sonarcloud.io/summary/new_code?id=five59_flytrap)
 
 ![Screenshot](screenshot.jpg)
 
@@ -220,6 +220,15 @@ flytrap/
 ├── docker-compose.yml         # InfluxDB & Grafana services
 ├── .env.example               # Environment template
 └── AGENTS.md                  # Development guidelines
+```
+
+### Testing
+```bash
+# Run tests
+uv run python -m pytest tests/
+
+# Run tests with coverage
+uv run python -m pytest --cov=flytrap --cov-report=xml --cov-report=term tests/
 ```
 
 ### Key Dependencies
