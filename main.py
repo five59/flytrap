@@ -9,7 +9,7 @@ import sys
 from eyeball import ObjectDetector
 
 
-def _prompt_for_srt_uri(headless: bool) -> str:
+def _prompt_for_srt_uri() -> str:
     """Prompt user for SRT URI via console input."""
     print("No SRT URI provided via command line.")
     print("Please enter the SRT stream URI to connect to.")
@@ -44,7 +44,7 @@ def main():
     if len(sys.argv) > 1:
         srt_uri = sys.argv[1]
     else:
-        srt_uri = _prompt_for_srt_uri(headless)
+        srt_uri = _prompt_for_srt_uri()
 
     # Get detection FPS from command line or use default
     detection_fps = 6.0

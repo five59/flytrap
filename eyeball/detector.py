@@ -114,16 +114,14 @@ class ObjectDetector:
             print("Using CPU (no GPU acceleration available)")
         return device
 
-    def run(
-        self, window_name: str = "Traffic Detector", window_size: tuple = (1600, 900)
-    ):
+    def run(self, window_size: tuple = (1600, 900)):
         """
         Start the main detection loop.
 
         Args:
-            window_name: Name of the display window (ignored in headless mode)
             window_size: Fixed window size as (width, height) (ignored in headless mode)
         """
+        window_name = "Traffic Detector"
         self._setup_display_window(window_name, window_size)
 
         if not self._setup_stream():
@@ -237,7 +235,7 @@ class ObjectDetector:
             processing_time_ms,
             motion_pixels,
         ) = self.frame_processor.process_frame(
-            frame_bgr, self.frame_count, self.frame_skip_interval
+            frame_bgr, self.frame_count
         )
 
         return {

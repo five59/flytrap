@@ -49,7 +49,7 @@ class FrameProcessor:
         self.inference_size = None
 
     def process_frame(
-        self, frame_bgr: np.ndarray, frame_count: int, frame_skip_interval: int
+        self, frame_bgr: np.ndarray, frame_count: int
     ) -> Tuple[np.ndarray, np.ndarray, bool, List[Dict], float, float]:
         """
         Process a single video frame with motion detection and optional YOLO inference.
@@ -57,7 +57,6 @@ class FrameProcessor:
         Args:
             frame_bgr: Input BGR frame
             frame_count: Current frame count
-            frame_skip_interval: Frame skipping interval for FPS control
 
         Returns:
             Tuple of (annotated_frame, fg_mask, has_motion, detections, processing_time_ms, motion_pixels_percent)
