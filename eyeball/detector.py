@@ -703,6 +703,35 @@ class ObjectDetector:
             scale_x = 1.0
             scale_y = 1.0
 
+        # Crop to ROI if mask is provided (only when inference_size is set)
+        if self.roi_mask is not None and self.inference_size is not None:
+            # Find bounding box of non-masked area (where mask > 0)
+            non_zero_coords = cv2.findNonZero(self.roi_mask)
+            if non_zero_coords is not None:
+                x, y, w, h = cv2.boundingRect(non_zero_coords)
+                # Crop the inference frame to the ROI bounding box
+                inference_frame = inference_frame[y:y+h, x:x+w]
+                # Update scale factors to account for cropping
+                crop_scale_x = self.inference_size[0] / w
+                crop_scale_y = self.inference_size[1] / h
+                scale_x *= crop_scale_x
+                scale_y *= crop_scale_y
+                # Update roi_mask to match cropped frame
+                self.roi_mask = self.roi_mask[y:y+h, x:x+w]
+
+        # Resize to 640px height maintaining aspect ratio
+        target_height = 640
+        current_height, current_width = inference_frame.shape[:2]
+        if current_height != target_height:
+            aspect_ratio = current_width / current_height
+            target_width = int(target_height * aspect_ratio)
+            inference_frame = cv2.resize(inference_frame, (target_width, target_height), interpolation=cv2.INTER_LINEAR)
+            # Update scale factors for final resize
+            resize_scale_x = current_width / target_width
+            resize_scale_y = current_height / target_height
+            scale_x *= resize_scale_x
+            scale_y *= resize_scale_y
+
         # Motion detection using background subtraction (on inference-sized frame)
         fg_mask = self.back_sub.apply(inference_frame)
 
@@ -790,11 +819,11 @@ class ObjectDetector:
         )
         inference_time_ms = (time.time() - inference_start) * 1000
 
-        # Annotate frame with detections (on inference-sized frame first)
+        # Annotate frame with detections
         annotated_frame = results[0].plot()
 
-        # Scale annotated frame back to original size for display
-        if self.inference_size is not None:
+        # Scale annotated frame back to original size for display (unless cropped to ROI)
+        if self.inference_size is not None and self.roi_mask is None:
             annotated_frame = cv2.resize(annotated_frame, (original_width, original_height),
                                         interpolation=cv2.INTER_LINEAR)
 
@@ -913,17 +942,7 @@ class ObjectDetector:
         self.last_inference_time_ms = inference_time_ms
         self.last_motion_pixels = motion_pixels
 
-        # Visually black out the masked ROI area on display
-        if self.roi_mask is not None:
-            # Scale mask to original frame size if needed
-            if self.inference_size is not None:
-                display_mask = cv2.resize(self.roi_mask, (original_width, original_height),
-                                        interpolation=cv2.INTER_NEAREST)
-            else:
-                display_mask = self.roi_mask
-
-            # Black out ignored areas (where mask is 0)
-            annotated_frame[display_mask == 0] = 0
+        # Frame is already cropped to ROI if mask was provided, no visual masking needed
 
         # Explicitly delete large objects to help garbage collector
         # This is critical when processing frames at high rates
@@ -1148,24 +1167,8 @@ class ObjectDetector:
 
                 # Display result only if not in headless mode
                 if not self.headless:
-                    # Crop to show only ROI (non-masked area)
+                    # Use annotated frame directly (already cropped to ROI if mask provided)
                     display_frame = annotated_frame
-                    if self.roi_mask is not None:
-                        # Calculate crop boundaries (original frame coordinates)
-                        # Find first non-zero row in mask (scaled to original size)
-                        if self.inference_size is not None:
-                            display_mask = cv2.resize(self.roi_mask,
-                                (annotated_frame.shape[1], annotated_frame.shape[0]),
-                                interpolation=cv2.INTER_NEAREST)
-                        else:
-                            display_mask = self.roi_mask
-
-                        # Find where mask becomes non-zero (ROI starts)
-                        non_zero_rows = np.any(display_mask > 0, axis=1)
-                        if np.any(non_zero_rows):
-                            first_roi_row = np.argmax(non_zero_rows)
-                            # Crop frame to show only ROI
-                            display_frame = annotated_frame[first_roi_row:, :]
 
                     # Create metrics panel above the video
                     metrics_panel = self._create_metrics_panel(

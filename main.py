@@ -56,9 +56,10 @@ def main():
     # Options: (1280, 720), (960, 540), (640, 360), or None for original size
     inference_size = (1280, 720)
 
-    # Create ROI mask to ignore specific areas
+    # Create ROI mask to define the area to crop to (white = include, black = exclude)
     # IMPORTANT: Mask coordinates are in INFERENCE resolution (1280x720)
-    # To mask top 200 pixels and bottom 50 pixels of ORIGINAL 1080p frame, we need to scale:
+    # The frame will be cropped to the bounding box of the white areas and resized to 640px height
+    # To exclude top 200 pixels and bottom 50 pixels of ORIGINAL 1080p frame, we need to scale:
     # 200 pixels at 1080p → (200 / 1080) * 720 = 133 pixels at 720p
     # 50 pixels at 1080p → (50 / 1080) * 720 = 33 pixels at 720p
     roi_mask = np.ones((inference_size[1], inference_size[0]), dtype=np.uint8) * 255
