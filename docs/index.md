@@ -1,5 +1,4 @@
 ---
-layout: default
 title: "Flytrap Documentation"
 description: "Real-time object detection and tracking using YOLO11 with SRT streams"
 permalink: /

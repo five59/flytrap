@@ -1,8 +1,6 @@
 ---
-layout: default
 title: "Monitoring & Visualization"
 description: "InfluxDB and Grafana setup for comprehensive metrics collection and visualization"
-nav_order: 6
 permalink: /monitoring.html
 ---
 

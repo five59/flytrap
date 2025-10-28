@@ -1,60 +1,64 @@
-# Jekyll Configuration for Flytrap Documentation
-title: "Flytrap Documentation"
-description: "Real-time object detection and tracking with YOLO11 and SRT streams"
-url: "https://five59.github.io"
-baseurl: "/flytrap"
-repository: "five59/flytrap"
-
+# Welcome to Jekyll!
+#
+# This config file is meant for settings that affect your whole blog, values
+# which you are expected to set up once and rarely edit after that. If you find
+# yourself editing this file very often, consider using Jekyll's data files
+# feature for the data you need to update frequently.
+#
+# For technical reasons, this file is *NOT* reloaded automatically when you use
+# 'bundle exec jekyll serve'. If you change this file, please restart the server process.
+#
+# If you need help with YAML syntax, here are some quick references for you:
+# https://learnxinyminutes.com/docs/yaml/
+#
 # Site settings
-author: "Flytrap Team"
-email: "flytrap@example.com"
-twitter_username: "flytrap_ai"
-github_username: "five59"
+# These are used to personalize your new site. If you look in the HTML files,
+# you will see them accessed via {{ site.title }}, {{ site.email }}, and so on.
+# You can create any custom variable you would like, and they will be accessible
+# in the templates via {{ site.myvariable }}.
+
+title: Flytrap Documentation
+email: hello@559labs.com
+description: >- # this means to ignore newlines until "baseurl:"
+  Real-time object detection and tracking using YOLO11 with SRT (Secure Reliable Transport)
+  video streams. Tracks vehicles, people, and bicycles with direction detection, speed
+  calculation, and automatic screenshot capture.
+baseurl: "/flytrap" # the subpath of your site, e.g. /blog
+url: "https://five59.github.io" # the base hostname & protocol for your site
+repository: five59/flytrap
+github_username: five59
 
 # Build settings
-markdown: kramdown
-highlighter: rouge
-incremental: true
-
-# Plugins
+remote_theme: pages-themes/minimal@v0.2.0
 plugins:
+  - jekyll-remote-theme
   - jekyll-feed
   - jekyll-sitemap
   - jekyll-seo-tag
 
-# Exclude from processing
+show_downloads: false
+
+# Exclude from processing.
+# The following items will not be processed, by default.
+# Any item listed under the `exclude:` key here will be automatically added to
+# the internal "default list".
+#
+# Excluded items can be processed by explicitly listing the directories or
+# their entries' file path in the `include:` list.
+#
 exclude:
-  - Gemfile
-  - Gemfile.lock
-  - vendor/
-  - .bundle/
   - .sass-cache/
   - .jekyll-cache/
   - gemfiles/
+  - Gemfile
+  - Gemfile.lock
+  - node_modules/
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
 
 # Custom variables
-logo: /assets/images/logo.png
 social_links:
   github: "https://github.com/five59/flytrap"
   docs: "https://five59.github.io/flytrap/"
-
-# Navigation
-navigation:
-  - title: "Home"
-    url: "/"
-  - title: "Installation"
-    url: "/installation.html"
-  - title: "Usage"
-    url: "/usage.html"
-  - title: "Configuration"
-    url: "/configuration.html"
-  - title: "Architecture"
-    url: "/architecture.html"
-  - title: "Monitoring"
-    url: "/monitoring.html"
-  - title: "Development"
-    url: "/development.html"
-  - title: "Troubleshooting"
-    url: "/troubleshooting.html"
-  - title: "Performance"
-    url: "/performance.html"

@@ -1,8 +1,6 @@
 ---
-layout: default
 title: "Development Guide"
 description: "Development environment, project structure, testing, and contribution guidelines"
-nav_order: 9
 permalink: /development.html
 ---
 
