@@ -768,8 +768,10 @@ class ObjectDetector:
                     )
                 except Exception as e:
                     print(f"Error logging to InfluxDB: {e}")
-            # Add metric overlay even when skipping YOLO processing
-            frame_bgr = self._add_metric_overlay(frame_bgr, 0.0, motion_pixels)
+            # Return frame resized to inference_size for consistent display
+            # Even when skipping inference, maintain consistent frame dimensions
+            if self.inference_size is not None:
+                frame_bgr = cv2.resize(frame_bgr, self.inference_size, interpolation=cv2.INTER_LINEAR)
 
             # Clean up intermediate objects before returning
             del fg_mask
@@ -778,7 +780,7 @@ class ObjectDetector:
             if 'thresh' in locals():
                 del thresh
 
-            return frame_bgr  # Return original frame
+            return frame_bgr
 
         # Run YOLO inference with tracking
         inference_start = time.time()
