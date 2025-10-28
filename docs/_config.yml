@@ -16,12 +16,6 @@ markdown: kramdown
 highlighter: rouge
 incremental: true
 
-# Collections
-collections:
-  docs:
-    output: true
-    permalink: /:name/
-
 # Plugins
 plugins:
   - jekyll-feed
@@ -37,10 +31,6 @@ exclude:
   - .sass-cache/
   - .jekyll-cache/
   - gemfiles/
-
-# Include files
-include:
-  - _pages
 
 # Custom variables
 logo: /assets/images/logo.png
@@ -48,54 +38,23 @@ social_links:
   github: "https://github.com/five59/flytrap"
   docs: "https://five59.github.io/flytrap/"
 
-# Build settings
-markdown: kramdown
-highlighter: rouge
-theme: minima
-
-# Plugins
-plugins:
-  - jekyll-feed
-  - jekyll-sitemap
-  - jekyll-seo-tag
-
-# Collections
-collections:
-  docs:
-    output: true
-    permalink: /:name/
-
-# Exclude from processing
-exclude:
-  - Gemfile
-  - Gemfile.lock
-  - vendor/
-  - .bundle/
-  - .sass-cache/
-  - .jekyll-cache/
-  - gemfiles/
-
-# Include files
-include:
-  - _pages
-
 # Navigation
 navigation:
   - title: "Home"
     url: "/"
   - title: "Installation"
-    url: "/installation/"
+    url: "/installation.html"
   - title: "Usage"
-    url: "/usage/"
+    url: "/usage.html"
   - title: "Configuration"
-    url: "/configuration/"
+    url: "/configuration.html"
   - title: "Architecture"
-    url: "/architecture/"
+    url: "/architecture.html"
   - title: "Monitoring"
-    url: "/monitoring/"
+    url: "/monitoring.html"
   - title: "Development"
-    url: "/development/"
+    url: "/development.html"
   - title: "Troubleshooting"
-    url: "/troubleshooting/"
+    url: "/troubleshooting.html"
   - title: "Performance"
-    url: "/performance/"
+    url: "/performance.html"

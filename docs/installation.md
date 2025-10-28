@@ -3,6 +3,7 @@ layout: default
 title: "Installation Guide"
 description: "Complete setup instructions for Flytrap including system dependencies and configuration"
 nav_order: 2
+permalink: /installation.html
 ---
 
 # Installation Guide

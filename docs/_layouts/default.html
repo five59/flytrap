@@ -14,12 +14,9 @@
             <nav class="site-nav">
                 <a href="{{ '/' | relative_url }}" class="site-title">{{ site.title }}</a>
                 <ul class="nav-list">
-                    <li><a href="{{ '/installation/' | relative_url }}">Installation</a></li>
-                    <li><a href="{{ '/usage/' | relative_url }}">Usage</a></li>
-                    <li><a href="{{ '/configuration/' | relative_url }}">Configuration</a></li>
-                    <li><a href="{{ '/architecture/' | relative_url }}">Architecture</a></li>
-                    <li><a href="{{ '/monitoring/' | relative_url }}">Monitoring</a></li>
-                    <li><a href="{{ '/development/' | relative_url }}">Development</a></li>
+                    {% for item in site.navigation %}
+                    <li><a href="{{ item.url | relative_url }}" {% if page.url == item.url %}class="current"{% endif %}>{{ item.title }}</a></li>
+                    {% endfor %}
                 </ul>
             </nav>
         </div>

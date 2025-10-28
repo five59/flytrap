@@ -3,6 +3,7 @@ layout: default
 title: "Architecture Overview"
 description: "System design, data flow, and core components of Flytrap"
 nav_order: 5
+permalink: /architecture.html
 ---
 
 # Architecture Overview

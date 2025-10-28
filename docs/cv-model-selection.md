@@ -3,6 +3,7 @@ layout: default
 title: "Computer Vision Model Selection"
 description: "Why YOLO11m was chosen for Flytrap's object detection needs"
 nav_order: 10
+permalink: /cv-model-selection.html
 ---
 
 ## Why Choose YOLO11m for Most Computer Vision Tasks?

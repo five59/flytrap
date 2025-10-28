@@ -3,6 +3,7 @@ layout: default
 title: "Configuration Guide"
 description: "Complete configuration options for Flytrap including environment variables and parameters"
 nav_order: 4
+permalink: /configuration.html
 ---
 
 # Configuration Guide

@@ -3,6 +3,7 @@ layout: default
 title: "Performance Optimization"
 description: "Performance optimization techniques, benchmarking, and tuning strategies"
 nav_order: 7
+permalink: /performance.html
 ---
 
 # Performance Optimization Guide
